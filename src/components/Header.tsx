@@ -1,9 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, User, BarChart3 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Header = () => {
   const location = useLocation();
+  const { user, profile, signOut } = useAuth();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -54,13 +56,28 @@ export const Header = () => {
           </nav>
           
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm">
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline ml-2">Login</span>
-            </Button>
-            <Button variant="hero" size="sm">
-              Sign Up
-            </Button>
+            {user ? (
+              <>
+                <span className="text-sm text-muted-foreground hidden sm:inline">
+                  Welcome, {profile?.full_name}
+                </span>
+                <Button variant="ghost" size="sm" onClick={signOut}>
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/student/login">
+                    <User className="h-4 w-4" />
+                    <span className="hidden sm:inline ml-2">Student Login</span>
+                  </Link>
+                </Button>
+                <Button variant="hero" size="sm" asChild>
+                  <Link to="/admin/login">Admin Login</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

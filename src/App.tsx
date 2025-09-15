@@ -3,32 +3,70 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./hooks/useAuth";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Assessment from "./pages/Assessment";
 import Results from "./pages/Results";
 import Careers from "./pages/Careers";
+import StudentAuth from "./pages/StudentAuth";
+import AdminAuth from "./pages/AdminAuth";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/assessment" element={<Assessment />} />
-          <Route path="/results" element={<Results />} />
-          <Route path="/careers" element={<Careers />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/student/login" element={<StudentAuth />} />
+            <Route path="/admin/login" element={<AdminAuth />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute requiredRole="student">
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/assessment" 
+              element={
+                <ProtectedRoute requiredRole="student">
+                  <Assessment />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/results" 
+              element={
+                <ProtectedRoute requiredRole="student">
+                  <Results />
+                </ProtectedRoute>
+              } 
+            />
+            <Route path="/careers" element={<Careers />} />
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
