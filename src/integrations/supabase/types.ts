@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      aptitude_questions: {
+        Row: {
+          category: string
+          correct_answer: number
+          created_at: string
+          created_by: string | null
+          difficulty_level: number
+          id: string
+          options: Json
+          question: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          correct_answer: number
+          created_at?: string
+          created_by?: string | null
+          difficulty_level?: number
+          id?: string
+          options: Json
+          question: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          correct_answer?: number
+          created_at?: string
+          created_by?: string | null
+          difficulty_level?: number
+          id?: string
+          options?: Json
+          question?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      assessments: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          created_at: string
+          id: string
+          questions: Json
+          score: number | null
+          started_at: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          answers: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          questions: Json
+          score?: number | null
+          started_at?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          questions?: Json
+          score?: number | null
+          started_at?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -41,6 +113,39 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      schools: {
+        Row: {
+          address: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          name: string
+          strands: Json
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          strands?: Json
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          strands?: Json
+          updated_at?: string
         }
         Relationships: []
       }
