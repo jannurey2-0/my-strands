@@ -30,6 +30,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   }
 
   if (requiredRole && profile?.role !== requiredRole) {
+    console.log('Role mismatch:', { requiredRole, profileRole: profile?.role, profile });
     // Redirect to appropriate login if role doesn't match
     if (requiredRole === 'admin') {
       return <Navigate to="/admin/login" replace />;
