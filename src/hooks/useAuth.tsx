@@ -36,12 +36,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', { event, session });
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile with timeout to prevent deadlock
-          setTimeout(async () => {
+          // Fetch user profile immediately
+          try {
             const { data: profileData, error } = await supabase
               .from('profiles')
               .select('*')
@@ -50,7 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             console.log('Profile fetch result:', { profileData, error, userId: session.user.id });
             setProfile(profileData);
-          }, 0);
+          } catch (error) {
+            console.error('Error fetching profile:', error);
+          }
         } else {
           setProfile(null);
         }
@@ -60,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session);
       setSession(session);
       setUser(session?.user ?? null);
       if (!session) setLoading(false);
@@ -110,6 +114,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: error.message,
         variant: "destructive"
       });
+    } else {
+      // Successful sign in - let the auth state change handler take care of navigation
+      console.log('Sign in successful');
     }
 
     return { error };

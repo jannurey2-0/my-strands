@@ -10,6 +10,8 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { user, profile, loading } = useAuth();
 
+  console.log('ProtectedRoute check:', { user: !!user, profile, loading, requiredRole });
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -22,6 +24,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   }
 
   if (!user) {
+    console.log('No user, redirecting to login');
     // Redirect to appropriate login based on required role
     if (requiredRole === 'admin') {
       return <Navigate to="/admin/login" replace />;
@@ -38,5 +41,6 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     return <Navigate to="/student/login" replace />;
   }
 
+  console.log('Access granted for:', { role: profile?.role, requiredRole });
   return <>{children}</>;
 }

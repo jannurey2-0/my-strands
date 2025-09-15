@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +10,16 @@ import { ArrowLeft, GraduationCap } from 'lucide-react';
 
 export default function StudentAuth() {
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, profile, user } = useAuth();
   const navigate = useNavigate();
+
+  // Navigate to student dashboard when profile loads and user is student
+  useEffect(() => {
+    if (user && profile && profile.role === 'student') {
+      console.log('Student authenticated, navigating to student dashboard');
+      navigate('/dashboard');
+    }
+  }, [user, profile, navigate]);
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -25,7 +33,7 @@ export default function StudentAuth() {
     const { error } = await signUp(email, password, fullName);
     
     if (!error) {
-      navigate('/dashboard');
+      console.log('Student sign up successful');
     }
     
     setIsLoading(false);
@@ -42,7 +50,7 @@ export default function StudentAuth() {
     const { error } = await signIn(email, password);
     
     if (!error) {
-      navigate('/dashboard');
+      console.log('Student sign in successful, waiting for profile to load...');
     }
     
     setIsLoading(false);

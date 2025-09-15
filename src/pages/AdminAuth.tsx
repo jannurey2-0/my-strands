@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,16 @@ import { ArrowLeft, Shield } from 'lucide-react';
 
 export default function AdminAuth() {
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, profile, user } = useAuth();
   const navigate = useNavigate();
+
+  // Navigate to admin dashboard when profile loads and user is admin
+  useEffect(() => {
+    if (user && profile && profile.role === 'admin') {
+      console.log('Admin authenticated, navigating to admin dashboard');
+      navigate('/admin/dashboard');
+    }
+  }, [user, profile, navigate]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -23,7 +31,8 @@ export default function AdminAuth() {
     const { error } = await signIn(email, password);
     
     if (!error) {
-      navigate('/admin/dashboard');
+      // Don't navigate here - let the auth hook handle it based on role
+      console.log('Admin sign in successful, waiting for profile to load...');
     }
     
     setIsLoading(false);
