@@ -1,11 +1,12 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, School, BookOpen, LogOut, Plus, ArrowLeft } from 'lucide-react';
+import { Users, School, BookOpen, Plus, TrendingUp, FileText, Building, HelpCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import QuestionManagement from '@/components/QuestionManagement';
+import { AdminLayout } from '@/components/AdminLayout';
 
 interface Stats {
   totalStudents: number;
@@ -24,7 +25,7 @@ interface AptitudeQuestion {
 }
 
 export default function AdminDashboard() {
-  const { profile, signOut } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const [stats, setStats] = useState<Stats>({
     totalStudents: 0,
@@ -40,18 +41,40 @@ export default function AdminDashboard() {
   // Fetch dashboard stats
   const fetchStats = async () => {
     try {
-      const [studentsRes, assessmentsRes, schoolsRes, questionsRes] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'student'),
-        supabase.from('assessments').select('id', { count: 'exact' }),
-        supabase.from('schools').select('id', { count: 'exact' }),
-        supabase.from('aptitude_questions').select('id', { count: 'exact' })
-      ]);
+      // Fetch students count
+      const { count: studentsCount, error: studentsError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'student');
+
+      if (studentsError) throw studentsError;
+
+      // Fetch assessments count
+      const { count: assessmentsCount, error: assessmentsError } = await supabase
+        .from('assessments')
+        .select('*', { count: 'exact', head: true });
+
+      if (assessmentsError) throw assessmentsError;
+
+      // Fetch schools count
+      const { count: schoolsCount, error: schoolsError } = await supabase
+        .from('schools')
+        .select('*', { count: 'exact', head: true });
+
+      if (schoolsError) throw schoolsError;
+
+      // Fetch questions count
+      const { count: questionsCount, error: questionsError } = await supabase
+        .from('aptitude_questions')
+        .select('*', { count: 'exact', head: true });
+
+      if (questionsError) throw questionsError;
 
       setStats({
-        totalStudents: studentsRes.count || 0,
-        totalAssessments: assessmentsRes.count || 0,
-        totalSchools: schoolsRes.count || 0,
-        totalQuestions: questionsRes.count || 0
+        totalStudents: studentsCount || 0,
+        totalAssessments: assessmentsCount || 0,
+        totalSchools: schoolsCount || 0,
+        totalQuestions: questionsCount || 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -97,34 +120,100 @@ export default function AdminDashboard() {
     fetchQuestions();
   }, []);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10">
-      <header className="bg-background/80 backdrop-blur-sm border-b border-primary/10 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {activeSection !== 'dashboard' && (
-              <Button variant="ghost" onClick={() => setActiveSection('dashboard')}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold text-primary">SHS Navigator Admin</h1>
-              <p className="text-sm text-muted-foreground">Welcome, {profile?.full_name}</p>
-            </div>
-          </div>
-          <Button variant="outline" onClick={signOut}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8">
-        {activeSection === 'dashboard' && (
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'dashboard':
+        return (
           <>
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-foreground">Dashboard Overview</h1>
+              <p className="text-muted-foreground">Welcome back, {profile?.full_name}. Here's what's happening today.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <Card className="hover:shadow-lg transition-all duration-300 border-primary/20 border-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <Users className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.totalStudents}</div>
+                      <div className="text-xs text-muted-foreground">Students</div>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <TrendingUp className="h-3 w-3 mr-1 text-success" />
+                    <span>+12% from last month</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300 border-secondary/20 border-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-secondary-foreground" />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.totalAssessments}</div>
+                      <div className="text-xs text-muted-foreground">Assessments</div>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <TrendingUp className="h-3 w-3 mr-1 text-success" />
+                    <span>+8% from last month</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300 border-accent/20 border-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
+                      <Building className="w-5 h-5 text-accent-foreground" />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.totalSchools}</div>
+                      <div className="text-xs text-muted-foreground">Schools</div>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <TrendingUp className="h-3 w-3 mr-1 text-success" />
+                    <span>+3% from last month</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300 border-muted/20 border-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                      <HelpCircle className="w-5 h-5" />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.totalQuestions}</div>
+                      <div className="text-xs text-muted-foreground">Questions</div>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <TrendingUp className="h-3 w-3 mr-1 text-success" />
+                    <span>+5% from last month</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="hover:shadow-lg transition-shadow">
+              <Card className="hover:shadow-lg transition-all duration-300">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -143,11 +232,11 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-shadow">
+              <Card className="hover:shadow-lg transition-all duration-300">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-secondary/50 rounded-lg flex items-center justify-center">
-                      <School className="w-5 h-5 text-secondary-foreground" />
+                    <div className="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
+                      <Building className="w-5 h-5 text-secondary-foreground" />
                     </div>
                     Schools & Strands
                   </CardTitle>
@@ -162,11 +251,11 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-shadow">
+              <Card className="hover:shadow-lg transition-all duration-300">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-accent/50 rounded-lg flex items-center justify-center">
-                      <BookOpen className="w-5 h-5 text-accent-foreground" />
+                    <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
+                      <HelpCircle className="w-5 h-5 text-accent-foreground" />
                     </div>
                     Assessment Questions
                   </CardTitle>
@@ -181,64 +270,54 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
-
-            <div className="mt-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Stats</CardTitle>
-                  <CardDescription>Overview of system usage</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-4 bg-primary/5 rounded-lg">
-                      <div className="text-2xl font-bold text-primary">{loading ? '...' : stats.totalStudents}</div>
-                      <div className="text-sm text-muted-foreground">Total Students</div>
-                    </div>
-                    <div className="text-center p-4 bg-secondary/20 rounded-lg">
-                      <div className="text-2xl font-bold text-secondary-foreground">{loading ? '...' : stats.totalAssessments}</div>
-                      <div className="text-sm text-muted-foreground">Assessments Taken</div>
-                    </div>
-                    <div className="text-center p-4 bg-accent/20 rounded-lg">
-                      <div className="text-2xl font-bold text-accent-foreground">{loading ? '...' : stats.totalSchools}</div>
-                      <div className="text-sm text-muted-foreground">Schools Registered</div>
-                    </div>
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <div className="text-2xl font-bold">{loading ? '...' : stats.totalQuestions}</div>
-                      <div className="text-sm text-muted-foreground">Questions Created</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
           </>
-        )}
-
-        {activeSection === 'questions' && (
-          <QuestionManagement questions={questions} onRefresh={fetchQuestions} />
-        )}
-
-        {activeSection === 'students' && (
+        );
+      
+      case 'questions':
+        return <QuestionManagement questions={questions} onRefresh={fetchQuestions} />;
+      
+      case 'students':
+        return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Student Management</h2>
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Student Management</h1>
+                <p className="text-muted-foreground">Manage student profiles and assessment results</p>
+              </div>
+            </div>
             <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
+              <CardContent className="py-12 text-center text-muted-foreground">
                 Student management functionality coming soon.
               </CardContent>
             </Card>
           </div>
-        )}
-
-        {activeSection === 'schools' && (
+        );
+      
+      case 'schools':
+        return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Schools Management</h2>
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Schools Management</h1>
+                <p className="text-muted-foreground">Manage schools and their available strands</p>
+              </div>
+            </div>
             <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
+              <CardContent className="py-12 text-center text-muted-foreground">
                 Schools management functionality coming soon.
               </CardContent>
             </Card>
           </div>
-        )}
-      </main>
-    </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <AdminLayout activeSection={activeSection} setActiveSection={setActiveSection}>
+      {renderContent()}
+    </AdminLayout>
   );
 }

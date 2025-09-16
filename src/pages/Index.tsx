@@ -1,8 +1,11 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { 
   ArrowRight, 
   CheckCircle, 
@@ -14,7 +17,13 @@ import {
   BookOpen,
   Palette,
   Wrench,
-  Trophy
+  Trophy,
+  Mail,
+  Phone,
+  MapPin,
+  User,
+  School,
+  Target
 } from "lucide-react";
 import heroStudents from "@/assets/hero-students.jpg";
 
@@ -46,26 +55,60 @@ const Index = () => {
     { name: "TVL", icon: <Wrench className="h-5 w-5" />, color: "text-amber-600", description: "Technical-Vocational-Livelihood" }
   ];
 
+  const teamMembers = [
+    {
+      name: "Dr. Maria Santos",
+      role: "Chief Academic Officer",
+      bio: "20+ years in educational psychology and student assessment",
+      icon: <User className="h-8 w-8" />
+    },
+    {
+      name: "Prof. Juan Dela Cruz",
+      role: "Career Guidance Specialist",
+      bio: "Expert in SHS strand selection and career pathways",
+      icon: <Target className="h-8 w-8" />
+    },
+    {
+      name: "Ms. Ana Reyes",
+      role: "Technology Director",
+      bio: "Specializes in educational technology and student engagement",
+      icon: <School className="h-8 w-8" />
+    }
+  ];
+
+  // Handle scrolling to sections when the page loads with a hash
+  useEffect(() => {
+    if (window.location.hash) {
+      const element = document.getElementById(window.location.hash.substring(1));
+      if (element) {
+        // Small delay to ensure the page has fully loaded
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+    <div className="min-h-screen flex flex-col">
       <Header />
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 lg:py-28">
+      <section className="relative overflow-hidden py-20 lg:py-28 flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <div className="space-y-4">
                 <Badge variant="secondary" className="w-fit">
-                  🎓 Find Your Perfect SHS Strand
+                  🎓 Are you ready?
                 </Badge>
                 <h1 className="text-4xl lg:text-6xl font-bold text-foreground leading-tight">
-                  Discover the 
-                  <span className="text-primary"> SHS strand </span>
-                  that fits you best
+                  FIND THE PERFECT 
+                  <span className="text-primary"> SHS STRAND </span>
+                  THAT FITS YOU BEST
                 </h1>
                 <p className="text-xl text-muted-foreground leading-relaxed">
-                  Take our comprehensive assessment to get personalized recommendations for your Senior High School strand based on your interests, aptitudes, and career goals.
+                  Discover which Senior High School Strand is best suited for you based on your interests, strengths, and  future goals.
                 </p>
               </div>
               
@@ -205,6 +248,222 @@ const Index = () => {
         </div>
       </section>
 
+      {/* About Us Section */}
+      <section id="about" className="py-20 bg-muted/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
+              About SHSNavigator
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Empowering students to make informed decisions about their educational future
+            </p>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-12 items-center mb-16">
+            <div>
+              <h3 className="text-2xl font-bold mb-6">Our Mission</h3>
+              <p className="text-muted-foreground mb-4">
+                SHSNavigator was founded with the mission to help Grade 10 students in the Philippines 
+                make informed decisions about their Senior High School strand selection. We believe that 
+                every student deserves guidance to discover their potential and align their education 
+                with their interests and career aspirations.
+              </p>
+              <p className="text-muted-foreground mb-4">
+                Our team of educational experts, career counselors, and technology professionals have 
+                developed a scientifically-backed assessment system that provides personalized 
+                recommendations to help students navigate this critical educational decision.
+              </p>
+              <p className="text-muted-foreground">
+                Since our launch, we've helped over 10,000 students find their ideal SHS strand, 
+                setting them on a path toward academic success and fulfilling careers.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="p-6 text-center">
+                <div className="text-3xl font-bold text-primary mb-2">10K+</div>
+                <div className="text-muted-foreground">Students Helped</div>
+              </Card>
+              <Card className="p-6 text-center">
+                <div className="text-3xl font-bold text-primary mb-2">6</div>
+                <div className="text-muted-foreground">SHS Strands</div>
+              </Card>
+              <Card className="p-6 text-center">
+                <div className="text-3xl font-bold text-primary mb-2">98%</div>
+                <div className="text-muted-foreground">Satisfaction Rate</div>
+              </Card>
+              <Card className="p-6 text-center">
+                <div className="text-3xl font-bold text-primary mb-2">24/7</div>
+                <div className="text-muted-foreground">Support</div>
+              </Card>
+            </div>
+          </div>
+          
+          <div className="text-center mb-12">
+            <h3 className="text-2xl font-bold mb-8">Our Team</h3>
+            <div className="grid md:grid-cols-3 gap-8">
+              {teamMembers.map((member, index) => (
+                <Card key={index} className="text-center p-6">
+                  <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4 text-primary">
+                    {member.icon}
+                  </div>
+                  <CardTitle className="text-lg mb-2">{member.name}</CardTitle>
+                  <CardDescription className="mb-3">{member.role}</CardDescription>
+                  <p className="text-sm text-muted-foreground">{member.bio}</p>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Us Section */}
+      <section id="contact" className="py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
+              Contact Us
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Have questions or need assistance? Get in touch with our team
+            </p>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-12">
+            <div>
+              <h3 className="text-2xl font-bold mb-6">Get In Touch</h3>
+              <p className="text-muted-foreground mb-8">
+                Our support team is here to help you with any questions about our service, 
+                the assessment process, or your SHS strand recommendations.
+              </p>
+              
+              <div className="space-y-6">
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                    <MapPin className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Our Office</h4>
+                    <p className="text-muted-foreground">
+                      123 Education Street, Manila, Philippines
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                    <Phone className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Phone</h4>
+                    <p className="text-muted-foreground">
+                      +63 123 456 7890
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      Mon-Fri, 8:00 AM - 5:00 PM
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                    <Mail className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Email</h4>
+                    <p className="text-muted-foreground">
+                      info@shsnavigator.edu.ph
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      We'll respond within 24 hours
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <Card className="p-6">
+                <CardHeader>
+                  <CardTitle>Send us a Message</CardTitle>
+                  <CardDescription>
+                    Fill out the form below and we'll get back to you as soon as possible
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="firstName" className="block text-sm font-medium mb-1">
+                          First Name
+                        </label>
+                        <input
+                          type="text"
+                          id="firstName"
+                          className="w-full px-3 py-2 border rounded-md text-sm"
+                          placeholder="Your first name"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="lastName" className="block text-sm font-medium mb-1">
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          id="lastName"
+                          className="w-full px-3 py-2 border rounded-md text-sm"
+                          placeholder="Your last name"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        className="w-full px-3 py-2 border rounded-md text-sm"
+                        placeholder="your.email@example.com"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="subject" className="block text-sm font-medium mb-1">
+                        Subject
+                      </label>
+                      <input
+                        type="text"
+                        id="subject"
+                        className="w-full px-3 py-2 border rounded-md text-sm"
+                        placeholder="What is this regarding?"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="message" className="block text-sm font-medium mb-1">
+                        Message
+                      </label>
+                      <textarea
+                        id="message"
+                        rows={4}
+                        className="w-full px-3 py-2 border rounded-md text-sm"
+                        placeholder="Your message here..."
+                      ></textarea>
+                    </div>
+                    
+                    <Button variant="hero" className="w-full">
+                      Send Message
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-primary/5 to-accent/5">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -234,6 +493,9 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      <Footer />
+      <ScrollToTop />
     </div>
   );
 };

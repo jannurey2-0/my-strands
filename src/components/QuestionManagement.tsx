@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, BookOpen, Award, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -144,10 +144,32 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
     }
   };
 
+  const getDifficultyIcon = (level: number) => {
+    switch (level) {
+      case 1: return <span className="text-green-500">●</span>;
+      case 2: return <span className="text-yellow-500">●●</span>;
+      case 3: return <span className="text-red-500">●●●</span>;
+      default: return <span>●</span>;
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'math': return <Award className="h-4 w-4 text-blue-500" />;
+      case 'science': return <Zap className="h-4 w-4 text-green-500" />;
+      case 'language': return <BookOpen className="h-4 w-4 text-purple-500" />;
+      case 'logical': return <span className="font-bold text-orange-500">L</span>;
+      default: return <span>?</span>;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Question Management</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Question Management</h2>
+          <p className="text-muted-foreground">Create and manage assessment questions</p>
+        </div>
         <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Add Question
@@ -155,67 +177,78 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
       </div>
 
       {showForm && (
-        <Card>
+        <Card className="border-primary/20 shadow-lg">
           <CardHeader>
             <CardTitle>{editingQuestion ? 'Edit Question' : 'Add New Question'}</CardTitle>
+            <CardDescription>
+              {editingQuestion 
+                ? 'Update the details of the existing question' 
+                : 'Create a new assessment question for students'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
                 <Label htmlFor="question">Question</Label>
                 <Textarea
                   id="question"
                   value={formData.question}
                   onChange={(e) => setFormData({ ...formData, question: e.target.value })}
                   required
+                  placeholder="Enter the question text..."
+                  className="min-h-[100px]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="option1">Option 1</Label>
                   <Input
                     id="option1"
                     value={formData.option1}
                     onChange={(e) => setFormData({ ...formData, option1: e.target.value })}
                     required
+                    placeholder="First option..."
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="option2">Option 2</Label>
                   <Input
                     id="option2"
                     value={formData.option2}
                     onChange={(e) => setFormData({ ...formData, option2: e.target.value })}
                     required
+                    placeholder="Second option..."
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="option3">Option 3</Label>
                   <Input
                     id="option3"
                     value={formData.option3}
                     onChange={(e) => setFormData({ ...formData, option3: e.target.value })}
                     required
+                    placeholder="Third option..."
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="option4">Option 4</Label>
                   <Input
                     id="option4"
                     value={formData.option4}
                     onChange={(e) => setFormData({ ...formData, option4: e.target.value })}
                     required
+                    placeholder="Fourth option..."
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="correct_answer">Correct Answer</Label>
                   <Select value={formData.correct_answer.toString()} onValueChange={(value) => setFormData({ ...formData, correct_answer: parseInt(value) })}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select correct option" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="0">Option 1</SelectItem>
@@ -226,41 +259,76 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
                   </Select>
                 </div>
 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="math">Math</SelectItem>
-                      <SelectItem value="science">Science</SelectItem>
-                      <SelectItem value="language">Language</SelectItem>
-                      <SelectItem value="logical">Logical</SelectItem>
+                      <SelectItem value="math">
+                        <div className="flex items-center gap-2">
+                          <Award className="h-4 w-4 text-blue-500" />
+                          Math
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="science">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-4 w-4 text-green-500" />
+                          Science
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="language">
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="h-4 w-4 text-purple-500" />
+                          Language
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="logical">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-orange-500">L</span>
+                          Logical
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="difficulty">Difficulty</Label>
                   <Select value={formData.difficulty_level.toString()} onValueChange={(value) => setFormData({ ...formData, difficulty_level: parseInt(value) })}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select difficulty" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Easy</SelectItem>
-                      <SelectItem value="2">Medium</SelectItem>
-                      <SelectItem value="3">Hard</SelectItem>
+                      <SelectItem value="1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-500">●</span>
+                          Easy
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-500">●●</span>
+                          Medium
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-red-500">●●●</span>
+                          Hard
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <Button type="submit">
+              <div className="flex gap-3 pt-4">
+                <Button type="submit" className="flex-1">
                   {editingQuestion ? 'Update Question' : 'Add Question'}
                 </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button type="button" variant="outline" onClick={resetForm} className="flex-1">
                   Cancel
                 </Button>
               </div>
@@ -271,29 +339,73 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
 
       <div className="space-y-4">
         {questions.map((question, index) => (
-          <Card key={question.id}>
+          <Card key={question.id} className="hover:shadow-md transition-all duration-200 border-muted/30">
             <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex-1">
-                  <h3 className="font-medium mb-2">{question.question}</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-2">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="mt-1 text-muted-foreground">
+                      {getCategoryIcon(question.category)}
+                    </div>
+                    <h3 className="font-medium text-foreground">{question.question}</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
                     {question.options.map((option, optionIndex) => (
-                      <div key={optionIndex} className={`p-2 rounded ${optionIndex === question.correct_answer ? 'bg-primary/10 text-primary font-medium' : 'bg-muted'}`}>
-                        {optionIndex + 1}. {option}
+                      <div 
+                        key={optionIndex} 
+                        className={`p-3 rounded-lg border ${
+                          optionIndex === question.correct_answer 
+                            ? 'bg-primary/10 border-primary/30 text-primary font-medium' 
+                            : 'bg-muted/50 border-muted text-muted-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                            optionIndex === question.correct_answer 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {optionIndex + 1}
+                          </span>
+                          <span>{option}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span>Category: {question.category}</span>
-                    <span>Difficulty: {question.difficulty_level === 1 ? 'Easy' : question.difficulty_level === 2 ? 'Medium' : 'Hard'}</span>
+                  
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-full">
+                      <span className="text-muted-foreground">Category:</span>
+                      <span className="font-medium capitalize">{question.category}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-full">
+                      <span className="text-muted-foreground">Difficulty:</span>
+                      <span className="font-medium flex items-center gap-1">
+                        {getDifficultyIcon(question.difficulty_level)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-2 ml-4">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(question)}>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleEdit(question)}
+                    className="h-9 px-3"
+                  >
                     <Edit2 className="w-4 h-4" />
+                    <span className="sr-only">Edit</span>
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleDelete(question.id)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleDelete(question.id)}
+                    className="h-9 px-3"
+                  >
                     <Trash2 className="w-4 h-4" />
+                    <span className="sr-only">Delete</span>
                   </Button>
                 </div>
               </div>
@@ -302,9 +414,17 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
         ))}
 
         {questions.length === 0 && (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No questions created yet. Click "Add Question" to get started.
+          <Card className="border-dashed border-muted">
+            <CardContent className="py-12 text-center">
+              <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No Questions Found</h3>
+              <p className="text-muted-foreground mb-4">
+                Get started by creating your first assessment question.
+              </p>
+              <Button onClick={() => setShowForm(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Question
+              </Button>
             </CardContent>
           </Card>
         )}

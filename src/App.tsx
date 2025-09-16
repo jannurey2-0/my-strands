@@ -17,56 +17,61 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Wrapper component to provide navigation context to AuthProvider
+const AppContent = () => (
+  <AuthProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/student/login" element={<StudentAuth />} />
+        <Route path="/admin/login" element={<AdminAuth />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute requiredRole="student">
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/assessment" 
+          element={
+            <ProtectedRoute requiredRole="student">
+              <Assessment />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/results" 
+          element={
+            <ProtectedRoute requiredRole="student">
+              <Results />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="/careers" element={<Careers />} />
+        <Route 
+          path="/admin/dashboard" 
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </TooltipProvider>
+  </AuthProvider>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/student/login" element={<StudentAuth />} />
-            <Route path="/admin/login" element={<AdminAuth />} />
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute requiredRole="student">
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/assessment" 
-              element={
-                <ProtectedRoute requiredRole="student">
-                  <Assessment />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/results" 
-              element={
-                <ProtectedRoute requiredRole="student">
-                  <Results />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="/careers" element={<Careers />} />
-            <Route 
-              path="/admin/dashboard" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   </QueryClientProvider>
 );
 
