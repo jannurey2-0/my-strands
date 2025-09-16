@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
@@ -14,12 +14,22 @@ import StudentAuth from "./pages/StudentAuth";
 import AdminAuth from "./pages/AdminAuth";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import TestAssessment from "./pages/TestAssessment";
+import DatabaseTest from "./pages/DatabaseTest";
+
+// Debug component to log current route
+const RouteDebugger = () => {
+  const location = useLocation();
+  console.log('Current route:', location.pathname);
+  return null;
+};
 
 const queryClient = new QueryClient();
 
 // Wrapper component to provide navigation context to AuthProvider
 const AppContent = () => (
   <AuthProvider>
+    <RouteDebugger />
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -57,6 +67,22 @@ const AppContent = () => (
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/test-assessment" 
+          element={
+            <ProtectedRoute requiredRole="student">
+              <TestAssessment />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/database-test" 
+          element={
+            <ProtectedRoute requiredRole="student">
+              <DatabaseTest />
             </ProtectedRoute>
           } 
         />

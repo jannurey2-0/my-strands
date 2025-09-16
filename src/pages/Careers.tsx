@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -40,6 +40,7 @@ interface CareerPath {
 
 const Careers = () => {
   const [selectedStrand, setSelectedStrand] = useState<CareerPath | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const careerPaths: CareerPath[] = [
     {
@@ -238,94 +239,141 @@ const Careers = () => {
     }
   };
 
+  const openModal = (path: CareerPath) => {
+    setSelectedStrand(path);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedStrand(null);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-grow">
-        {/* Hero Section */}
-        <section 
-          className="relative bg-cover bg-center bg-no-repeat py-20"
-          style={{ backgroundImage: `url(${strandBackground})` }}
-        >
-          <div className="absolute inset-0 bg-primary/80" />
-          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Explore Your Career Pathways
-            </h1>
-            <p className="text-xl text-white/90 max-w-3xl mx-auto mb-8">
-              Discover the exciting career opportunities that await you in each SHS strand. 
-              From STEM to Arts, find your path to a successful future.
-            </p>
-            <Link to="/assessment">
-              <Button variant="hero" size="lg" className="bg-white text-primary hover:bg-white/90">
-                <Briefcase className="h-5 w-5 mr-2" />
-                Find Your Perfect Strand
-              </Button>
-            </Link>
-          </div>
-        </section>
+      {/* Hero Section */}
+      <section 
+        className="relative bg-cover bg-center bg-no-repeat py-20"
+        style={{ backgroundImage: `url(${strandBackground})` }}
+      >
+        <div className="absolute inset-0 bg-primary/80" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
+            Explore Your Career Pathways
+          </h1>
+          <p className="text-xl text-white/90 max-w-3xl mx-auto mb-8">
+            Discover the exciting career opportunities that await you in each SHS strand. 
+            From STEM to Arts, find your path to a successful future.
+          </p>
+          <Link to="/assessment">
+            <Button variant="hero" size="lg" className="bg-white text-primary hover:bg-white/90 hover:shadow-lg transition-all">
+              <Briefcase className="h-5 w-5 mr-2" />
+              Find Your Perfect Strand
+            </Button>
+          </Link>
+        </div>
+      </section>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Career Paths Grid */}
-        <div className="space-y-12">
-          {careerPaths.map((path, index) => (
-            <Card key={path.strand} className="overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-muted/50 to-muted/20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {careerPaths.map((path) => (
+            <Card 
+              key={path.strand} 
+              className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => openModal(path)}
+            >
+              <CardHeader className="bg-gradient-to-r from-muted/50 to-muted/20 pb-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className={`${path.color} bg-white p-3 rounded-lg shadow-sm`}>
+                  <div className="flex items-center space-x-3">
+                    <div className={`${path.color} bg-white p-2 rounded-lg shadow-sm`}>
                       {path.icon}
                     </div>
                     <div>
-                      <CardTitle className="text-2xl">{path.strand}</CardTitle>
-                      <CardDescription className="text-base">{path.fullName}</CardDescription>
+                      <CardTitle className="text-lg">{path.strand}</CardTitle>
+                      <CardDescription className="text-xs">{path.fullName}</CardDescription>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-sm">
-                    {path.careers.length} Career Paths
+                  <Badge variant="outline" className="text-xs">
+                    {path.careers.length} Careers
                   </Badge>
                 </div>
-                <p className="text-foreground mt-4">{path.description}</p>
               </CardHeader>
               
-              <CardContent className="p-6">
-                <div className="grid lg:grid-cols-3 gap-8">
+              <CardContent className="p-4">
+                <p className="text-sm text-foreground line-clamp-2 mb-3">{path.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Click to view careers
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Career Opportunities Modal */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            {selectedStrand && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center space-x-3">
+                    <div className={`${selectedStrand.color} bg-white p-2 rounded-lg shadow-sm`}>
+                      {selectedStrand.icon}
+                    </div>
+                    <div>
+                      <div className="text-2xl">{selectedStrand.strand}</div>
+                      <div className="text-sm font-normal text-muted-foreground">{selectedStrand.fullName}</div>
+                    </div>
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <div className="space-y-6">
+                  {/* Description */}
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">About this strand</h3>
+                    <p className="text-foreground">{selectedStrand.description}</p>
+                  </div>
+                  
                   {/* College Programs */}
                   <div>
-                    <h4 className="font-semibold mb-4 flex items-center">
-                      <GraduationCap className="h-4 w-4 mr-2 text-primary" />
+                    <h3 className="font-semibold text-lg mb-3 flex items-center">
+                      <GraduationCap className="h-5 w-5 mr-2 text-primary" />
                       College Programs
-                    </h4>
-                    <div className="space-y-2">
-                      {path.collegePrograms.slice(0, 6).map((program, idx) => (
-                        <div key={idx} className="flex items-center space-x-2">
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {selectedStrand.collegePrograms.map((program, idx) => (
+                        <div 
+                          key={idx} 
+                          className="flex items-center space-x-2 p-3 rounded-lg border bg-card"
+                        >
                           <div className="w-1.5 h-1.5 bg-primary rounded-full" />
                           <span className="text-sm text-foreground">{program}</span>
                         </div>
                       ))}
-                      {path.collegePrograms.length > 6 && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          +{path.collegePrograms.length - 6} more programs
-                        </p>
-                      )}
                     </div>
                   </div>
-
+                  
                   {/* Featured Careers */}
-                  <div className="lg:col-span-2">
-                    <h4 className="font-semibold mb-4 flex items-center">
-                      <TrendingUp className="h-4 w-4 mr-2 text-primary" />
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3 flex items-center">
+                      <TrendingUp className="h-5 w-5 mr-2 text-primary" />
                       Featured Career Opportunities
-                    </h4>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
-                      {path.careers.map((career, careerIdx) => (
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedStrand.careers.map((career, careerIdx) => (
                         <div 
                           key={careerIdx}
                           className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow"
                         >
                           <div className="flex justify-between items-start mb-3">
-                            <h5 className="font-medium text-foreground">{career.title}</h5>
+                            <h4 className="font-medium text-foreground">{career.title}</h4>
                             <Badge className={getDemandColor(career.demand)} variant="secondary">
                               {career.demand} Demand  
                             </Badge>
@@ -335,47 +383,42 @@ const Careers = () => {
                             <span className="text-sm font-medium text-success">
                               {career.salary}
                             </span>
-                            <Button variant="ghost" size="sm">
-                              Learn More
-                              <ChevronRight className="h-3 w-3 ml-1" />
-                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
-          {/* Call to Action */}
-          <Card className="mt-12 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
-            <CardContent className="py-12 text-center">
-              <Trophy className="h-12 w-12 text-primary mx-auto mb-4" />
-              <h3 className="text-2xl font-bold mb-4">Ready to Discover Your Path?</h3>
-              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-                Take our comprehensive assessment to get personalized strand recommendations 
-                based on your interests, aptitudes, and career goals.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link to="/assessment">
-                  <Button variant="hero" size="lg">
-                    <Microscope className="h-5 w-5 mr-2" />
-                    Take Assessment
-                  </Button>
-                </Link>
-                <Link to="/dashboard">
-                  <Button variant="outline" size="lg">
-                    View Dashboard
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Call to Action */}
+        <Card className="mt-12 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+          <CardContent className="py-12 text-center">
+            <Trophy className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h3 className="text-2xl font-bold mb-4">Ready to Discover Your Path?</h3>
+            <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+              Take our comprehensive assessment to get personalized strand recommendations 
+              based on your interests, aptitudes, and career goals.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/assessment">
+                <Button variant="hero" size="lg">
+                  <Microscope className="h-5 w-5 mr-2" />
+                  Take Assessment
+                </Button>
+              </Link>
+              <Link to="/dashboard">
+                <Button variant="outline" size="lg">
+                  View Dashboard
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </main>
 
       <Footer />

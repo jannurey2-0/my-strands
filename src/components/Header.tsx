@@ -1,18 +1,22 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { User } from "lucide-react";
+import { User, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useState } from "react";
 
 export const Header = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, session } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => {
     return location.pathname === path;
   };
 
   const handleAboutClick = () => {
+    setMobileMenuOpen(false);
     if (location.pathname === '/') {
       // If we're on the home page, scroll to the section
       const element = document.getElementById('about');
@@ -26,6 +30,7 @@ export const Header = () => {
   };
 
   const handleContactClick = () => {
+    setMobileMenuOpen(false);
     if (location.pathname === '/') {
       // If we're on the home page, scroll to the section
       const element = document.getElementById('contact');
@@ -40,6 +45,23 @@ export const Header = () => {
 
   // Check if user is a student
   const isStudent = user && profile?.role === 'student';
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
+  // Handle sign out with better error handling
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      // Force a page refresh to ensure clean state
+      window.location.href = '/';
+    } catch (error) {
+      console.error("Sign out error:", error);
+      // Even if sign out fails, redirect to home to reset UI state
+      window.location.href = '/';
+    }
+  };
 
   return (
     <header className="border-b">
@@ -118,12 +140,20 @@ export const Header = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            {user ? (
+            {session && !user ? (
+              // Session exists but no user - corrupted state
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">Session error</span>
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                  Refresh
+                </Button>
+              </div>
+            ) : user ? (
               <>
                 <span className="text-sm text-muted-foreground hidden sm:inline">
-                  Welcome, {profile?.full_name}
+                  Welcome, {profile?.full_name || user.email}
                 </span>
-                <Button variant="ghost" size="sm" onClick={signOut}>
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
                   Sign Out
                 </Button>
               </>
@@ -140,6 +170,123 @@ export const Header = () => {
                 </Button>
               </>
             )}
+            
+            {/* Mobile menu button */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Toggle navigation menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                <nav className="flex flex-col space-y-4 mt-8">
+                  {isStudent ? (
+                    <>
+                      <Link 
+                        to="/dashboard" 
+                        className={`text-lg font-medium transition-colors hover:text-primary ${
+                          isActive('/dashboard') ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                        onClick={closeMobileMenu}
+                      >
+                        Dashboard
+                      </Link>
+                      <Link 
+                        to="/assessment" 
+                        className={`text-lg font-medium transition-colors hover:text-primary ${
+                          isActive('/assessment') ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                        onClick={closeMobileMenu}
+                      >
+                        Assessment
+                      </Link>
+                      <Link 
+                        to="/careers" 
+                        className={`text-lg font-medium transition-colors hover:text-primary ${
+                          isActive('/careers') ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                        onClick={closeMobileMenu}
+                      >
+                        Career Paths
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link 
+                        to="/" 
+                        className={`text-lg font-medium transition-colors hover:text-primary ${
+                          isActive('/') ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                        onClick={closeMobileMenu}
+                      >
+                        Home
+                      </Link>
+                      <Link 
+                        to="/careers" 
+                        className={`text-lg font-medium transition-colors hover:text-primary ${
+                          isActive('/careers') ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                        onClick={closeMobileMenu}
+                      >
+                        Career Paths
+                      </Link>
+                    </>
+                  )}
+                  <button
+                    onClick={handleAboutClick}
+                    className={`text-lg font-medium transition-colors hover:text-primary text-left ${
+                      isActive('/') && location.hash === '#about' ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    About Us
+                  </button>
+                  <button
+                    onClick={handleContactClick}
+                    className={`text-lg font-medium transition-colors hover:text-primary text-left ${
+                      isActive('/') && location.hash === '#contact' ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    Contact Us
+                  </button>
+                  
+                  {session && !user ? (
+                    // Session exists but no user - corrupted state
+                    <div className="pt-4 mt-4 border-t">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Session error - please refresh
+                      </p>
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => { handleSignOut(); closeMobileMenu(); }}>
+                        Refresh Session
+                      </Button>
+                    </div>
+                  ) : user ? (
+                    <div className="pt-4 mt-4 border-t">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Welcome, {profile?.full_name || user.email}
+                      </p>
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => { handleSignOut(); closeMobileMenu(); }}>
+                        Sign Out
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="pt-4 mt-4 border-t space-y-2">
+                      <Button variant="ghost" className="w-full justify-start" asChild>
+                        <Link to="/student/login" onClick={closeMobileMenu}>
+                          <User className="h-4 w-4 mr-2" />
+                          Student Login
+                        </Link>
+                      </Button>
+                      <Button variant="hero" className="w-full" asChild>
+                        <Link to="/admin/login" onClick={closeMobileMenu}>
+                          Admin Login
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>

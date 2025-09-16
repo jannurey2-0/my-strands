@@ -12,12 +12,20 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
 
   console.log('ProtectedRoute check:', { user: !!user, profile, loading, requiredRole });
 
+  // Add a timeout to prevent infinite loading
   if (loading) {
+    // Log a warning if loading takes too long
+    setTimeout(() => {
+      if (loading) {
+        console.warn('ProtectedRoute: Still loading after 5 seconds. This might indicate an issue.');
+      }
+    }, 5000);
+
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
-          Loading...
+          <span>Loading authentication...</span>
         </div>
       </div>
     );

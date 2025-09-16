@@ -72,7 +72,7 @@ export const Footer = () => {
               <li className="flex items-start space-x-2">
                 <MapPin className="h-5 w-5 text-primary mt-0.5" />
                 <span className="text-muted-foreground">
-                  123 Education Street, Manila, Philippines
+                  Pagadian City
                 </span>
               </li>
               <li className="flex items-center space-x-2">

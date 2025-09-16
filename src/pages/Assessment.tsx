@@ -23,6 +23,9 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/hooks/useAuth";
+import { assessmentService, AssessmentData } from "@/integrations/supabase/assessmentService";
+import { useToast } from "@/hooks/use-toast";
 
 // Philippine regions data
 const PHILIPPINE_REGIONS = [
@@ -37,12 +40,12 @@ const PHILIPPINE_REGIONS = [
   "Western Visayas (Region VI)",
   "Central Visayas (Region VII)",
   "Eastern Visayas (Region VIII)",
+  "Zamboanga Peninsula (Region IX)",
   "Northern Mindanao (Region X)",
   "Davao Region (Region XI)",
   "SOCCSKSARGEN (Region XII)",
   "Caraga (Region XIII)",
-  "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
-  "Eastern Visayas (Region VIII)"
+  "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)"
 ];
 
 // Hobbies data
@@ -129,7 +132,10 @@ const APTITUDE_QUESTIONS = [
 
 const Assessment = () => {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -202,14 +208,91 @@ const Assessment = () => {
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Assessment complete, navigate to results
-      navigate("/results");
+      // Assessment complete, submit the form
+      handleSubmit();
     }
   };
 
   const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  // Submit the assessment
+  const handleSubmit = async () => {
+    if (!user || !profile) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to submit the assessment.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    // Set a timeout to ensure we don't get stuck
+    const timeoutId = setTimeout(() => {
+      if (isSubmitting) {
+        setIsSubmitting(false);
+        toast({
+          title: "Submission Timeout",
+          description: "The submission is taking longer than expected. Please try again.",
+          variant: "destructive"
+        });
+      }
+    }, 15000); // 15 seconds timeout
+    
+    try {
+      console.log("Starting assessment submission for user:", user.id);
+      console.log("User profile:", profile);
+      
+      // Prepare the data for submission
+      const assessmentData: AssessmentData = {
+        basicInfo: {
+          fullName: formData.fullName,
+          age: formData.age,
+          gender: formData.gender,
+          school: formData.school,
+          region: formData.region,
+          email: formData.email
+        },
+        academicProfile: {
+          gwa: formData.gwa,
+          favoriteSubject: formData.favoriteSubject,
+          leastFavoriteSubject: formData.leastFavoriteSubject
+        },
+        personalInterests: formData.interests,
+        hobbies: formData.hobbies,
+        aptitudeAnswers: formData.aptitudeAnswers
+      };
+
+      console.log("Prepared assessment data:", assessmentData);
+      
+      // Submit the assessment
+      const result = await assessmentService.submitAssessment(assessmentData, profile.id);
+      
+      console.log("Assessment submission result:", result);
+      
+      toast({
+        title: "Assessment Submitted",
+        description: "Your assessment has been successfully submitted."
+      });
+      
+      // Navigate to results page
+      navigate("/results");
+    } catch (error: any) {
+      console.error("Error submitting assessment:", error);
+      toast({
+        title: "Submission Failed",
+        description: error instanceof Error ? error.message : "Failed to submit assessment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      // Clear the timeout and reset the submitting state
+      clearTimeout(timeoutId);
+      setIsSubmitting(false);
     }
   };
 
@@ -400,7 +483,7 @@ const Assessment = () => {
             
             <div className="space-y-4">
               <Label>Favorite Subject *</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {[
                   "Mathematics",
                   "Science",
@@ -454,7 +537,7 @@ const Assessment = () => {
             
             <div className="space-y-4">
               <Label>Least Favorite Subject *</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {[
                   "Mathematics",
                   "Science",
@@ -514,7 +597,7 @@ const Assessment = () => {
             <p className="text-sm text-muted-foreground">
               Select up to 3 areas that interest you most:
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {INTERESTS.map((interest) => (
                 <div 
                   key={interest} 
@@ -552,7 +635,7 @@ const Assessment = () => {
             <p className="text-sm text-muted-foreground">
               Select up to 5 hobbies you enjoy:
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {HOBBIES.map((hobby) => (
                 <div 
                   key={hobby} 
@@ -645,119 +728,144 @@ const Assessment = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-grow">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Step Indicator */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <Link to="/dashboard" className="flex items-center text-primary hover:text-primary/80">
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Back to Dashboard
-              </Link>
-              <Badge variant="outline">
-                Step {currentStep + 1} of 5
-              </Badge>
+      <main className="flex-grow py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Stacked Cards Container */}
+          <div className="relative max-w-3xl mx-auto">
+            {/* Background Cards for Stacked Effect */}
+            <div className="absolute inset-0 -z-10 hidden sm:block">
+              <div className="absolute top-3 left-3 w-full h-full bg-card rounded-2xl shadow-lg border border-border"></div>
+              <div className="absolute top-6 left-6 w-full h-full bg-card rounded-2xl shadow-md border border-border"></div>
             </div>
-            
-            {/* Progress bar */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Assessment Progress</span>
-                <span>{Math.round(getProgressPercentage())}%</span>
-              </div>
-              <Progress value={getProgressPercentage()} className="h-2" />
-            </div>
-            
-            {/* Step titles */}
-            <div className="flex justify-between mt-6">
-              {[0, 1, 2, 3, 4].map((step) => {
-                const info = getStepInfo(step);
-                const isActive = step === currentStep;
-                const isCompleted = step < currentStep;
+
+            {/* Main Card with Stacked Appearance */}
+            <Card className="relative rounded-2xl shadow-xl border border-border overflow-hidden bg-background sm:shadow-xl">
+              {/* Step Indicator */}
+              <div className="px-4 sm:px-6 pt-6 pb-4 bg-gradient-to-r from-primary/5 to-accent/5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <Link to="/dashboard" className="flex items-center text-primary hover:text-primary/80 transition-colors text-sm">
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Back to Dashboard
+                  </Link>
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 self-start sm:self-auto">
+                    Step {currentStep + 1} of 5
+                  </Badge>
+                </div>
                 
-                return (
-                  <div key={step} className="flex flex-col items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-                      isActive 
-                        ? 'bg-primary text-primary-foreground' 
-                        : isCompleted 
-                          ? 'bg-success text-success-foreground'
-                          : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {info.icon}
-                    </div>
-                    <span className={`text-xs text-center ${
-                      isActive ? 'font-medium text-primary' : 'text-muted-foreground'
-                    }`}>
-                      {info.title.split(' ')[0]}
-                    </span>
+                {/* Progress bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">Assessment Progress</span>
+                    <span className="font-medium">{Math.round(getProgressPercentage())}%</span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Step Content Card */}
-          <Card className="mb-8">
-            <CardHeader>
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="text-primary">
-                  {stepInfo.icon}
+                  <Progress value={getProgressPercentage()} className="h-2" />
                 </div>
-                <div>
-                  <CardTitle className="text-xl">{stepInfo.title}</CardTitle>
-                  <CardDescription>
-                    {stepInfo.description}
-                  </CardDescription>
+                
+                {/* Step navigation dots - hidden on mobile, visible on tablet and up */}
+                <div className="hidden sm:flex justify-center mt-6">
+                  {[0, 1, 2, 3, 4].map((step) => {
+                    const isActive = step === currentStep;
+                    const isCompleted = step < currentStep;
+                    
+                    return (
+                      <div
+                        key={step}
+                        className={`w-3 h-3 rounded-full mx-1 transition-all ${
+                          isActive
+                            ? 'bg-primary scale-125'
+                            : isCompleted
+                            ? 'bg-success'
+                            : 'bg-muted'
+                        }`}
+                      />
+                    );
+                  })}
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              {renderStepContent()}
-            </CardContent>
-          </Card>
 
-          {/* Navigation */}
-          <div className="flex justify-between items-center">
-            <Button
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={currentStep === 0}
-            >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Previous
-            </Button>
-            
-            <div className="flex space-x-2">
-              {[0, 1, 2, 3, 4].map((step) => (
-                <div
-                  key={step}
-                  className={`w-3 h-3 rounded-full ${
-                    step === currentStep
-                      ? 'bg-primary'
-                      : step < currentStep
-                      ? 'bg-success'
-                      : 'bg-muted'
-                  }`}
-                />
-              ))}
+              {/* Step Content */}
+              <div className="px-4 sm:px-6 pb-6">
+                <Card className="border border-primary/20 shadow-sm rounded-xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-primary/10">
+                    <div className="flex items-center space-x-4">
+                      <div className="p-3 rounded-xl bg-primary/10 text-primary">
+                        {stepInfo.icon}
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl sm:text-2xl">{stepInfo.title}</CardTitle>
+                        <CardDescription className="text-base">
+                          {stepInfo.description}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {renderStepContent()}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Navigation */}
+              <div className="px-4 sm:px-6 pb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t border-border gap-4">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevious}
+                    disabled={currentStep === 0}
+                    className="flex items-center gap-2 px-4 py-2 w-full sm:w-auto"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  
+                  {/* Step indicators for mobile */}
+                  <div className="flex sm:hidden justify-center w-full">
+                    <div className="flex space-x-2">
+                      {[0, 1, 2, 3, 4].map((step) => {
+                        const info = getStepInfo(step);
+                        const isActive = step === currentStep;
+                        const isCompleted = step < currentStep;
+                        
+                        return (
+                          <div key={step} className="flex flex-col items-center">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs ${
+                              isActive 
+                                ? 'bg-primary text-primary-foreground ring-2 ring-primary/30 scale-110' 
+                                : isCompleted 
+                                  ? 'bg-success text-success-foreground'
+                                  : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {info.icon}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Button
+                    variant={isCurrentStepValid() ? "hero" : "outline"}
+                    onClick={handleNext}
+                    disabled={!isCurrentStepValid() || isSubmitting}
+                    className="flex items-center gap-2 px-4 py-2 w-full sm:w-auto"
+                  >
+                    {currentStep === 4 ? (
+                      isSubmitting ? "Submitting..." : "Get Results"
+                    ) : (
+                      "Next"
+                    )}
+                    {currentStep < 4 && <ChevronRight className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Help Text */}
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                Take your time to think about each question. You can always go back to change your answers.
+              </p>
             </div>
-
-            <Button
-              variant={isCurrentStepValid() ? "hero" : "outline"}
-              onClick={handleNext}
-              disabled={!isCurrentStepValid()}
-            >
-              {currentStep === 4 ? "Get Results" : "Next"}
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-
-          {/* Help Text */}
-          <div className="mt-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              Take your time to think about each question. You can always go back to change your answers.
-            </p>
           </div>
         </div>
       </main>

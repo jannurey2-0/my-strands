@@ -50,6 +50,50 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_responses: {
+        Row: {
+          academic_profile: Json
+          aptitude_answers: Json
+          basic_info: Json
+          hobbies: Json
+          id: string
+          personal_interests: Json
+          student_id: string
+          submitted_at: string
+          updated_at: string
+        }
+        Insert: {
+          academic_profile: Json
+          aptitude_answers: Json
+          basic_info: Json
+          hobbies: Json
+          id?: string
+          personal_interests: Json
+          student_id: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          academic_profile?: Json
+          aptitude_answers?: Json
+          basic_info?: Json
+          hobbies?: Json
+          id?: string
+          personal_interests?: Json
+          student_id?: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_responses_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       assessments: {
         Row: {
           answers: Json

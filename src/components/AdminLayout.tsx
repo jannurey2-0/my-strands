@@ -19,7 +19,7 @@ interface AdminLayoutProps {
 }
 
 export const AdminLayout = ({ children, activeSection, setActiveSection }: AdminLayoutProps) => {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, user, session } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -31,9 +31,33 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
   ];
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/admin/login');
+    console.log("Sign out button clicked");
+    try {
+      await signOut();
+      console.log("Sign out successful, navigating to admin login");
+      // Force a full page refresh to ensure clean state
+      window.location.href = '/admin/login';
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      // Even if sign out fails, redirect to login to reset UI state
+      window.location.href = '/admin/login';
+    }
   };
+
+  // If there's a session but no user, we have a corrupted state
+  if (session && !user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">Session Error</h2>
+          <p className="text-muted-foreground mb-4">Your session is corrupted. Please refresh the page.</p>
+          <Button onClick={() => window.location.reload()}>
+            Refresh Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -100,7 +124,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
               <Users className="h-4 w-4 text-primary" />
             </div>
             <div className="text-sm">
-              <div className="font-medium text-foreground">{profile?.full_name}</div>
+              <div className="font-medium text-foreground">{profile?.full_name || 'Administrator'}</div>
               <div className="text-muted-foreground text-xs">Administrator</div>
             </div>
           </div>
@@ -139,7 +163,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
                   <Users className="h-3 w-3 text-primary" />
                 </div>
                 <div className="text-sm">
-                  <div className="font-medium text-foreground">{profile?.full_name}</div>
+                  <div className="font-medium text-foreground">{profile?.full_name || 'Administrator'}</div>
                 </div>
               </div>
             </div>
