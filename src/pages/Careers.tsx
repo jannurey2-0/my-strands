@@ -1,8 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Header } from "@/components/Header";
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import { 
   Microscope,
   Calculator,
@@ -14,7 +16,8 @@ import {
   ChevronRight,
   TrendingUp,
   GraduationCap,
-  Briefcase
+  Briefcase,
+  Eye
 } from "lucide-react";
 import strandBackground from "@/assets/strand-background.jpg";
 
@@ -34,6 +37,8 @@ interface CareerPath {
 }
 
 const Careers = () => {
+  const [selectedStrand, setSelectedStrand] = useState<CareerPath | null>(null);
+  
   const careerPaths: CareerPath[] = [
     {
       strand: "STEM",
@@ -260,47 +265,87 @@ const Careers = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Career Paths Grid */}
-        <div className="space-y-12">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {careerPaths.map((path, index) => (
-            <Card key={path.strand} className="overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-muted/50 to-muted/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className={`${path.color} bg-white p-3 rounded-lg shadow-sm`}>
-                      {path.icon}
-                    </div>
-                    <div>
-                      <CardTitle className="text-2xl">{path.strand}</CardTitle>
-                      <CardDescription className="text-base">{path.fullName}</CardDescription>
-                    </div>
+            <Card key={path.strand} className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group" onClick={() => setSelectedStrand(path)}>
+              <CardHeader className="pb-4">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className={`${path.color} bg-background p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform`}>
+                    {path.icon}
                   </div>
-                  <Badge variant="outline" className="text-sm">
-                    {path.careers.length} Career Paths
-                  </Badge>
+                  <div>
+                    <CardTitle className="text-lg">{path.strand}</CardTitle>
+                    <CardDescription className="text-xs">{path.fullName}</CardDescription>
+                  </div>
                 </div>
-                <p className="text-foreground mt-4">{path.description}</p>
               </CardHeader>
               
-              <CardContent className="p-6">
-                <div className="grid lg:grid-cols-3 gap-8">
+              <CardContent className="pt-0">
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+                  {path.description}
+                </p>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">College Programs:</span>
+                    <Badge variant="secondary">{path.collegePrograms.length}</Badge>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Career Opportunities:</span>
+                    <Badge variant="secondary">{path.careers.length}</Badge>
+                  </div>
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full mt-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedStrand(path);
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Career Details
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Career Details Modal */}
+        <Dialog open={selectedStrand !== null} onOpenChange={() => setSelectedStrand(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            {selectedStrand && (
+              <>
+                <DialogHeader>
+                  <div className="flex items-center space-x-3 mb-2">
+                    <div className={`${selectedStrand.color} bg-background p-3 rounded-lg shadow-sm`}>
+                      {selectedStrand.icon}
+                    </div>
+                    <div>
+                      <DialogTitle className="text-2xl">{selectedStrand.strand}</DialogTitle>
+                      <p className="text-muted-foreground">{selectedStrand.fullName}</p>
+                    </div>
+                  </div>
+                  <p className="text-foreground mt-4">{selectedStrand.description}</p>
+                </DialogHeader>
+
+                <div className="grid lg:grid-cols-3 gap-8 mt-6">
                   {/* College Programs */}
                   <div>
                     <h4 className="font-semibold mb-4 flex items-center">
                       <GraduationCap className="h-4 w-4 mr-2 text-primary" />
                       College Programs
                     </h4>
-                    <div className="space-y-2">
-                      {path.collegePrograms.slice(0, 6).map((program, idx) => (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {selectedStrand.collegePrograms.map((program, idx) => (
                         <div key={idx} className="flex items-center space-x-2">
-                          <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                          <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0" />
                           <span className="text-sm text-foreground">{program}</span>
                         </div>
                       ))}
-                      {path.collegePrograms.length > 6 && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          +{path.collegePrograms.length - 6} more programs
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -310,8 +355,8 @@ const Careers = () => {
                       <TrendingUp className="h-4 w-4 mr-2 text-primary" />
                       Featured Career Opportunities
                     </h4>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
-                      {path.careers.map((career, careerIdx) => (
+                    <div className="grid gap-4">
+                      {selectedStrand.careers.map((career, careerIdx) => (
                         <div 
                           key={careerIdx}
                           className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow"
@@ -337,10 +382,10 @@ const Careers = () => {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Call to Action */}
         <Card className="mt-12 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
