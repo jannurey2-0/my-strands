@@ -392,13 +392,15 @@ const Dashboard = () => {
   const getMatchBadgeVariant = (percentage: number) => {
     if (percentage >= 80) return "default";
     if (percentage >= 70) return "secondary";
-    return "outline";
+    if (percentage >= 50) return "outline";
+    return "destructive";
   };
 
   // Get badge text based on percentage
   const getMatchBadgeText = (percentage: number) => {
     if (percentage >= 80) return "High Match";
     if (percentage >= 70) return "Good Match";
+    if (percentage >= 50) return "Moderate Match";
     return "Low Match";
   };
 

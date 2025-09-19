@@ -160,5 +160,38 @@ export const assessmentService = {
       console.error('Error in getAllSchools:', error);
       throw error;
     }
+  },
+
+  // Fetch aptitude questions for the assessment
+  getAptitudeQuestions: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('aptitude_questions')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching aptitude questions:', error);
+        throw new Error(`Failed to fetch aptitude questions: ${error.message}`);
+      }
+
+      // Transform the data to match our interface
+      const questions = (data || []).map(q => ({
+        id: q.id,
+        question: q.question,
+        // Convert options to the expected format (string | string[] | null)
+        options: q.options as string | string[] | null,
+        correct_answer: q.correct_answer,
+        category: q.category,
+        difficulty_level: q.difficulty_level,
+        // Type assertion since the type field exists in the database but not in the generated types
+        type: (q as any).type || 'multiple_choice'
+      }));
+
+      return questions;
+    } catch (error) {
+      console.error('Error in getAptitudeQuestions:', error);
+      throw error;
+    }
   }
 };

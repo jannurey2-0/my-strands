@@ -127,6 +127,30 @@ const Assessment = () => {
     aptitudeAnswers: {} as Record<string, number | string>
   });
 
+  // Load aptitude questions when user reaches the aptitude test step
+  useEffect(() => {
+    const fetchAptitudeQuestions = async () => {
+      if (currentStep === 4 && aptitudeQuestions.length === 0 && !loadingQuestions) {
+        setLoadingQuestions(true);
+        try {
+          const questions = await assessmentService.getAptitudeQuestions();
+          setAptitudeQuestions(questions);
+        } catch (error) {
+          console.error('Error fetching aptitude questions:', error);
+          toast({
+            title: "Error Loading Questions",
+            description: "Failed to load aptitude questions. Please try again.",
+            variant: "destructive"
+          });
+        } finally {
+          setLoadingQuestions(false);
+        }
+      }
+    };
+
+    fetchAptitudeQuestions();
+  }, [currentStep, aptitudeQuestions.length, loadingQuestions, toast]);
+
   // Save form data to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('assessmentFormData', JSON.stringify(formData));
@@ -142,12 +166,24 @@ const Assessment = () => {
       try {
         const parsedData = JSON.parse(savedFormData);
         // Merge saved data with default structure to ensure all fields exist
+        // Process aptitude answers to ensure numeric values are properly handled
+        const processedAptitudeAnswers: Record<string, number | string> = {};
+        if (parsedData.aptitudeAnswers) {
+          Object.keys(parsedData.aptitudeAnswers).forEach(key => {
+            const answer = parsedData.aptitudeAnswers[key];
+            // Convert string numbers back to numbers for consistency
+            processedAptitudeAnswers[key] = typeof answer === 'string' && !isNaN(parseInt(answer)) 
+              ? parseInt(answer) 
+              : answer;
+          });
+        }
+        
         setFormData(prev => ({
           ...prev,
           ...parsedData,
           interests: Array.isArray(parsedData.interests) ? parsedData.interests : [],
           hobbies: Array.isArray(parsedData.hobbies) ? parsedData.hobbies : [],
-          aptitudeAnswers: parsedData.aptitudeAnswers || {}
+          aptitudeAnswers: processedAptitudeAnswers
         }));
       } catch (e) {
         console.error('Failed to parse saved form data:', e);
@@ -156,7 +192,7 @@ const Assessment = () => {
     
     if (savedCurrentStep) {
       const step = parseInt(savedCurrentStep, 10);
-      if (!isNaN(step) && step >= 0 && step <= 4) {
+      if (!isNaN(step) && step >= 0 && step <= 5) {
         setCurrentStep(step);
       }
     }
@@ -187,12 +223,17 @@ const Assessment = () => {
   // Handle checkbox changes for interests
   const handleInterestChange = (interest: string, checked: boolean) => {
     setFormData(prev => {
-      const interests = checked 
-        ? [...prev.interests, interest] 
-        : prev.interests.filter(i => i !== interest);
+      let interests = [...prev.interests];
       
-      // Limit to 3 selections
-      if (interests.length > 3) return prev;
+      if (checked) {
+        // Add interest only if it's not already in the list and we're under the limit
+        if (!interests.includes(interest) && interests.length < 3) {
+          interests = [...interests, interest];
+        }
+      } else {
+        // Remove interest from the list
+        interests = interests.filter(i => i !== interest);
+      }
       
       return { ...prev, interests };
     });
@@ -201,12 +242,17 @@ const Assessment = () => {
   // Handle checkbox changes for hobbies
   const handleHobbyChange = (hobby: string, checked: boolean) => {
     setFormData(prev => {
-      const hobbies = checked 
-        ? [...prev.hobbies, hobby] 
-        : prev.hobbies.filter(h => h !== hobby);
+      let hobbies = [...prev.hobbies];
       
-      // Limit to 5 selections
-      if (hobbies.length > 5) return prev;
+      if (checked) {
+        // Add hobby only if it's not already in the list and we're under the limit
+        if (!hobbies.includes(hobby) && hobbies.length < 5) {
+          hobbies = [...hobbies, hobby];
+        }
+      } else {
+        // Remove hobby from the list
+        hobbies = hobbies.filter(h => h !== hobby);
+      }
       
       return { ...prev, hobbies };
     });
@@ -214,15 +260,20 @@ const Assessment = () => {
 
   // Handle aptitude test answers (supports numeric choices or free text)
   const handleAptitudeAnswer = (questionId: string, answer: number | string) => {
+    // Ensure numeric values are stored as numbers for consistency
+    const processedAnswer = typeof answer === 'string' && !isNaN(parseInt(answer)) 
+      ? parseInt(answer) 
+      : answer;
+      
     setFormData(prev => ({
       ...prev,
-      aptitudeAnswers: { ...prev.aptitudeAnswers, [questionId]: answer }
+      aptitudeAnswers: { ...prev.aptitudeAnswers, [questionId]: processedAnswer }
     }));
   };
 
   // Navigation functions
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < 5) {
       setCurrentStep(currentStep + 1);
     } else {
       // Assessment complete, submit the form
@@ -344,11 +395,16 @@ const Assessment = () => {
       title: "Aptitude Test",
       description: "Show us your skills",
       icon: <Brain className="h-5 w-5" />
+    },
+    {
+      title: "Review & Confirm",
+      description: "Review your answers before submission",
+      icon: <CheckCircle className="h-5 w-5" />
     }
   ];
 
   // Progress percentage
-  const progressPercentage = ((currentStep + 1) / 5) * 100;
+  const progressPercentage = ((currentStep + 1) / 6) * 100;
 
   // Step validation
   const isStepValid = () => {
@@ -368,6 +424,9 @@ const Assessment = () => {
           formData.aptitudeAnswers[q.id] !== undefined && 
           formData.aptitudeAnswers[q.id] !== ""
         );
+      case 5: // Review & Confirm
+        // Always valid as this is just a review step
+        return true;
       default:
         return false;
     }
@@ -514,10 +573,21 @@ const Assessment = () => {
                         ? "border-primary bg-primary/10"
                         : "border-input hover:border-primary/50"
                     }`}
+                    onClick={() => {
+                      // Prevent selecting the same subject as least favorite
+                      if (formData.leastFavoriteSubject !== subject) {
+                        handleInputChange("favoriteSubject", subject);
+                      }
+                    }}
                   >
                     <RadioGroup 
                       value={formData.favoriteSubject} 
-                      onValueChange={(value) => handleInputChange("favoriteSubject", value)}
+                      onValueChange={(value) => {
+                        // Prevent selecting the same subject as least favorite
+                        if (formData.leastFavoriteSubject !== value) {
+                          handleInputChange("favoriteSubject", value);
+                        }
+                      }}
                       className="flex items-center space-x-2 w-full"
                     >
                       <RadioGroupItem 
@@ -548,10 +618,21 @@ const Assessment = () => {
                         ? "border-primary bg-primary/10"
                         : "border-input hover:border-primary/50"
                     }`}
+                    onClick={() => {
+                      // Prevent selecting the same subject as favorite
+                      if (formData.favoriteSubject !== subject) {
+                        handleInputChange("leastFavoriteSubject", subject);
+                      }
+                    }}
                   >
                     <RadioGroup 
                       value={formData.leastFavoriteSubject} 
-                      onValueChange={(value) => handleInputChange("leastFavoriteSubject", value)}
+                      onValueChange={(value) => {
+                        // Prevent selecting the same subject as favorite
+                        if (formData.favoriteSubject !== value) {
+                          handleInputChange("leastFavoriteSubject", value);
+                        }
+                      }}
                       className="flex items-center space-x-2 w-full"
                     >
                       <RadioGroupItem 
@@ -775,9 +856,285 @@ const Assessment = () => {
           </motion.div>
         );
         
+      case 5: // Review & Confirm
+        const aptitudeScore = calculateAptitudeScore();
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-8"
+          >
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-bold mb-2">Review Your Answers</h3>
+              <p className="text-muted-foreground">
+                Please review all your answers before submitting. You can go back to make changes if needed.
+              </p>
+            </div>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <User className="h-5 w-5 mr-2" />
+                  Basic Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Full Name</Label>
+                  <p className="text-foreground">{formData.fullName || "Not provided"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Age</Label>
+                  <p className="text-foreground">{formData.age || "Not provided"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Gender</Label>
+                  <p className="text-foreground">{formData.gender || "Not provided"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">School</Label>
+                  <p className="text-foreground">{formData.school || "Not provided"}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-medium">Region</Label>
+                  <p className="text-foreground">{formData.region || "Not provided"}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-medium">Email</Label>
+                  <p className="text-foreground">{formData.email || "Not provided"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <GraduationCap className="h-5 w-5 mr-2" />
+                  Academic Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">GWA</Label>
+                  <p className="text-foreground">{formData.gwa || "Not provided"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Favorite Subject</Label>
+                  <p className="text-foreground">{formData.favoriteSubject || "Not provided"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Least Favorite Subject</Label>
+                  <p className="text-foreground">{formData.leastFavoriteSubject || "Not provided"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Heart className="h-5 w-5 mr-2" />
+                  Personal Interests
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {formData.interests.length > 0 ? (
+                    formData.interests.map((interest, index) => (
+                      <Badge key={index} variant="secondary">
+                        {interest}
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground">No interests selected</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Gamepad2 className="h-5 w-5 mr-2" />
+                  Hobbies & Activities
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {formData.hobbies.length > 0 ? (
+                    formData.hobbies.map((hobby, index) => (
+                      <Badge key={index} variant="secondary">
+                        {hobby}
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground">No hobbies selected</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Brain className="h-5 w-5 mr-2" />
+                  Aptitude Test Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-medium">Your Score</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Based on {aptitudeQuestions.filter(q => q.type === 'multiple_choice' || q.type === 'true_false').length} scored questions
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-bold text-primary">{aptitudeScore}%</div>
+                      <Badge variant={aptitudeScore >= 80 ? "default" : aptitudeScore >= 70 ? "secondary" : "outline"}>
+                        {aptitudeScore >= 80 ? "Excellent" : aptitudeScore >= 70 ? "Good" : "Needs Improvement"}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium mb-3">Your Answers</h4>
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {aptitudeQuestions.length > 0 ? (
+                        aptitudeQuestions.map((question, index) => {
+                          const options = Array.isArray(question.options) 
+                            ? question.options 
+                            : typeof question.options === 'string'
+                            ? JSON.parse(question.options)
+                            : [];
+                          
+                          const userAnswer = formData.aptitudeAnswers[question.id];
+                          let displayAnswer = "Not answered";
+                          let isCorrect = false;
+                          
+                          if (userAnswer !== undefined && userAnswer !== null && userAnswer !== "") {
+                            if (question.type === 'multiple_choice') {
+                              // Handle both string and number values
+                              const optionIndex = typeof userAnswer === 'number' ? userAnswer : parseInt(userAnswer.toString());
+                              if (!isNaN(optionIndex) && options[optionIndex]) {
+                                displayAnswer = options[optionIndex];
+                                // Ensure correct_answer is properly handled
+                                const correctAnswerIndex = question.correct_answer !== null && question.correct_answer !== undefined 
+                                  ? question.correct_answer 
+                                  : 0; // Default to 0 if not set
+                                // Compare as numbers since both are parsed to integers
+                                isCorrect = optionIndex === correctAnswerIndex;
+                              }
+                            } else if (question.type === 'true_false') {
+                              displayAnswer = userAnswer.toString();
+                              // In the database: 0 = True, 1 = False
+                              isCorrect = userAnswer.toString() === (question.correct_answer === 0 ? 'true' : 'false');
+                            } else {
+                              displayAnswer = userAnswer.toString();
+                            }
+                          }
+                          
+                          return (
+                            <div key={question.id} className="border-b pb-3 last:border-b-0">
+                              <div className="flex justify-between">
+                                <span className="font-medium">Q{index + 1}: {question.question}</span>
+                                {question.type === 'multiple_choice' || question.type === 'true_false' ? (
+                                  <Badge variant={isCorrect ? "default" : "destructive"}>
+                                    {isCorrect ? "Correct" : "Incorrect"}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              <div className="mt-1 text-sm">
+                                <span className="font-medium">Your answer: </span>
+                                <span className={isCorrect ? "text-green-600" : "text-destructive"}>{displayAnswer}</span>
+                              </div>
+                              {(question.type === 'multiple_choice' || question.type === 'true_false') && (
+                                <div className="mt-1 text-sm">
+                                  <span className="font-medium">Correct answer: </span>
+                                  {question.type === 'multiple_choice' 
+                                    ? (options.length > 0 && question.correct_answer !== null && question.correct_answer !== undefined 
+                                        ? options[question.correct_answer] 
+                                        : "No correct answer defined")
+                                    : (question.correct_answer === 0 ? 'true' : 'false')}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-muted-foreground">No questions available</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <Star className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-medium text-primary">Ready to Submit?</h4>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    By clicking "Submit Assessment", you confirm that all the information provided is accurate 
+                    and you agree to the terms and conditions of this assessment.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+        
       default:
         return null;
     }
+  };
+
+  // Calculate aptitude test score
+  const calculateAptitudeScore = () => {
+    if (aptitudeQuestions.length === 0) return 0;
+    
+    let correctAnswers = 0;
+    let totalQuestions = 0;
+    
+    aptitudeQuestions.forEach(question => {
+      // Only count multiple choice and true/false questions for scoring
+      if (question.type === 'multiple_choice' || question.type === 'true_false') {
+        totalQuestions++;
+        const userAnswer = formData.aptitudeAnswers[question.id];
+        if (userAnswer !== undefined && userAnswer !== null && userAnswer !== "") {
+          // For multiple choice, compare the selected option index
+          // For true/false, compare the string value
+          if (question.type === 'multiple_choice') {
+            // Handle both string and number values
+            const userAnswerIndex = typeof userAnswer === 'number' ? userAnswer : parseInt(userAnswer.toString());
+            // Ensure correct_answer is properly handled
+            const correctAnswerIndex = question.correct_answer !== null && question.correct_answer !== undefined 
+              ? question.correct_answer 
+              : 0; // Default to 0 if not set
+            if (!isNaN(userAnswerIndex) && userAnswerIndex === correctAnswerIndex) {
+              correctAnswers++;
+            }
+          } else if (question.type === 'true_false') {
+            // For true/false, correct_answer = 0 means true, 1 means false (based on database structure)
+            if (userAnswer.toString() === (question.correct_answer === 0 ? 'true' : 'false')) {
+              correctAnswers++;
+            }
+          }
+        }
+      }
+    });
+    
+    if (totalQuestions === 0) return 0;
+    
+    return Math.round((correctAnswers / totalQuestions) * 100);
+  };
+
+  // Test function to verify answer comparison logic
+  const testAnswerComparison = () => {
+    // This is just for testing - not part of the actual component
+    console.log('Testing answer comparison logic...');
   };
 
   return (
@@ -823,7 +1180,7 @@ const Assessment = () => {
                       </div>
                     </div>
                     <Badge variant="secondary" className="text-sm">
-                      {currentStep + 1} of 5
+                      {currentStep + 1} of 6
                     </Badge>
                   </div>
                   
@@ -857,7 +1214,7 @@ const Assessment = () => {
                       disabled={!isStepValid() || isSubmitting}
                       className="flex items-center group"
                     >
-                      {currentStep === 4 ? (
+                      {currentStep === 5 ? (
                         <>
                           {isSubmitting ? (
                             "Submitting..."
@@ -870,7 +1227,7 @@ const Assessment = () => {
                         </>
                       ) : (
                         <>
-                          Next
+                          {currentStep === 4 ? "Review Answers" : "Next"}
                           <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                         </>
                       )}
