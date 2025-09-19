@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -16,16 +16,25 @@ import {
   Gamepad2, 
   Brain,
   CheckCircle,
-  Circle
+  Circle,
+  Zap,
+  Target,
+  Award,
+  BookOpen,
+  Star
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { assessmentService, AssessmentData } from "@/integrations/supabase/assessmentService";
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Philippine regions data
 const PHILIPPINE_REGIONS = [
@@ -66,69 +75,23 @@ const INTERESTS = [
   "Technical Vocational Work"
 ];
 
-// Aptitude test questions
-const APTITUDE_QUESTIONS = [
-  {
-    id: 1,
-    question: "Which subject do you find most engaging?",
-    options: [
-      "Mathematics and Sciences",
-      "Business and Economics", 
-      "Literature and Social Studies",
-      "Arts and Creative Expression"
-    ]
-  },
-  {
-    id: 2,
-    question: "What type of activities do you enjoy most?",
-    options: [
-      "Conducting experiments and solving complex problems",
-      "Managing projects and working with numbers",
-      "Reading, writing, and analyzing human behavior",
-      "Creating art, music, or performing"
-    ]
-  },
-  {
-    id: 3,
-    question: "Which skill comes most naturally to you?",
-    options: [
-      "Logical reasoning and critical thinking",
-      "Leadership and communication",
-      "Research and analytical writing",
-      "Creative problem-solving"
-    ]
-  },
-  {
-    id: 4,
-    question: "In group projects, you typically:",
-    options: [
-      "Focus on research and technical aspects",
-      "Take charge and organize the team",
-      "Analyze information and provide insights",
-      "Contribute creative ideas and design"
-    ]
-  },
-  {
-    id: 5,
-    question: "Your ideal future career involves:",
-    options: [
-      "Technology, healthcare, or engineering",
-      "Business management or entrepreneurship",
-      "Education, psychology, or social work",
-      "Entertainment, design, or creative industries"
-    ]
-  },
-  {
-    id: 6,
-    question: "Which subjects do you consistently perform best in?",
-    options: [
-      "Math, Science, and Technology",
-      "Economics, Statistics, and Business",
-      "English, History, and Social Sciences",
-      "Arts, Music, and Creative Writing"
-    ]
-  }
+// Subject options
+const SUBJECT_OPTIONS = [
+  "Mathematics", "Science", "English", "Araling Panlipunan", "Computer Science",
+  "Business Math", "Economics", "Accounting", "Entrepreneurship", "Literature",
+  "History", "Philosophy", "Physics", "Chemistry", "Other"
 ];
+
+// Aptitude questions will be loaded from the database
+interface AptitudeQuestionFromDB {
+  id: string;
+  question: string;
+  options: string | string[] | null; // stored as JSON string or array
+  correct_answer?: number | null;
+  category?: string | null;
+  difficulty_level?: number | null;
+  type?: 'multiple_choice' | 'true_false' | 'essay' | 'identification' | null;
+}
 
 const Assessment = () => {
   const navigate = useNavigate();
@@ -136,6 +99,8 @@ const Assessment = () => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aptitudeQuestions, setAptitudeQuestions] = useState<AptitudeQuestionFromDB[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -159,8 +124,60 @@ const Assessment = () => {
     hobbies: [] as string[],
     
     // Step 5: Mini Aptitude Test
-    aptitudeAnswers: {} as Record<number, number>
+    aptitudeAnswers: {} as Record<string, number | string>
   });
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('assessmentFormData', JSON.stringify(formData));
+    localStorage.setItem('assessmentCurrentStep', currentStep.toString());
+  }, [formData, currentStep]);
+
+  // Load saved form data from localStorage on component mount
+  useEffect(() => {
+    const savedFormData = localStorage.getItem('assessmentFormData');
+    const savedCurrentStep = localStorage.getItem('assessmentCurrentStep');
+    
+    if (savedFormData) {
+      try {
+        const parsedData = JSON.parse(savedFormData);
+        // Merge saved data with default structure to ensure all fields exist
+        setFormData(prev => ({
+          ...prev,
+          ...parsedData,
+          interests: Array.isArray(parsedData.interests) ? parsedData.interests : [],
+          hobbies: Array.isArray(parsedData.hobbies) ? parsedData.hobbies : [],
+          aptitudeAnswers: parsedData.aptitudeAnswers || {}
+        }));
+      } catch (e) {
+        console.error('Failed to parse saved form data:', e);
+      }
+    }
+    
+    if (savedCurrentStep) {
+      const step = parseInt(savedCurrentStep, 10);
+      if (!isNaN(step) && step >= 0 && step <= 4) {
+        setCurrentStep(step);
+      }
+    }
+  }, []);
+
+  // Clear saved data after successful submission
+  const clearSavedData = () => {
+    localStorage.removeItem('assessmentFormData');
+    localStorage.removeItem('assessmentCurrentStep');
+  };
+
+  // Initialize form with user profile data
+  useEffect(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: profile.full_name || "",
+        email: profile.email || ""
+      }));
+    }
+  }, [profile]);
 
   // Handle form input changes
   const handleInputChange = (field: string, value: string) => {
@@ -195,11 +212,11 @@ const Assessment = () => {
     });
   };
 
-  // Handle aptitude test answers
-  const handleAptitudeAnswer = (questionId: number, optionIndex: number) => {
+  // Handle aptitude test answers (supports numeric choices or free text)
+  const handleAptitudeAnswer = (questionId: string, answer: number | string) => {
     setFormData(prev => ({
       ...prev,
-      aptitudeAnswers: { ...prev.aptitudeAnswers, [questionId]: optionIndex }
+      aptitudeAnswers: { ...prev.aptitudeAnswers, [questionId]: answer }
     }));
   };
 
@@ -242,13 +259,10 @@ const Assessment = () => {
           variant: "destructive"
         });
       }
-    }, 15000); // 15 seconds timeout
-    
+    }, 30000); // 30 second timeout
+
     try {
-      console.log("Starting assessment submission for user:", user.id);
-      console.log("User profile:", profile);
-      
-      // Prepare the data for submission
+      // Prepare data for submission
       const assessmentData: AssessmentData = {
         basicInfo: {
           fullName: formData.fullName,
@@ -268,113 +282,108 @@ const Assessment = () => {
         aptitudeAnswers: formData.aptitudeAnswers
       };
 
-      console.log("Prepared assessment data:", assessmentData);
-      
-      // Submit the assessment
+      // Submit to Supabase
       const result = await assessmentService.submitAssessment(assessmentData, profile.id);
       
-      console.log("Assessment submission result:", result);
+      if (result.success) {
+        clearTimeout(timeoutId);
+        setIsSubmitting(false);
+        
+        // Clear saved data on successful submission
+        clearSavedData();
+        
+        toast({
+          title: "Assessment Submitted!",
+          description: "Your assessment has been successfully submitted. You'll be redirected to your results shortly.",
+        });
+        
+        // Redirect to results page after a short delay
+        setTimeout(() => {
+          navigate("/results");
+        }, 2000);
+      } else {
+        throw new Error("Submission failed");
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      setIsSubmitting(false);
       
-      toast({
-        title: "Assessment Submitted",
-        description: "Your assessment has been successfully submitted."
-      });
-      
-      // Navigate to results page
-      navigate("/results");
-    } catch (error: any) {
       console.error("Error submitting assessment:", error);
+      
       toast({
-        title: "Submission Failed",
+        title: "Submission Error",
         description: error instanceof Error ? error.message : "Failed to submit assessment. Please try again.",
         variant: "destructive"
       });
-    } finally {
-      // Clear the timeout and reset the submitting state
-      clearTimeout(timeoutId);
-      setIsSubmitting(false);
     }
   };
 
-  // Validation functions
-  const isStep1Valid = () => {
-    return formData.fullName && formData.age && formData.gender && 
-           formData.school && formData.region && formData.email;
-  };
+  // Step titles and descriptions
+  const stepInfo = [
+    {
+      title: "Basic Information",
+      description: "Tell us about yourself",
+      icon: <User className="h-5 w-5" />
+    },
+    {
+      title: "Academic Profile",
+      description: "Share your academic background",
+      icon: <GraduationCap className="h-5 w-5" />
+    },
+    {
+      title: "Personal Interests",
+      description: "Select your areas of interest",
+      icon: <Heart className="h-5 w-5" />
+    },
+    {
+      title: "Hobbies & Activities",
+      description: "What do you enjoy doing?",
+      icon: <Gamepad2 className="h-5 w-5" />
+    },
+    {
+      title: "Aptitude Test",
+      description: "Show us your skills",
+      icon: <Brain className="h-5 w-5" />
+    }
+  ];
 
-  const isStep2Valid = () => {
-    return formData.gwa && formData.favoriteSubject && formData.leastFavoriteSubject;
-  };
+  // Progress percentage
+  const progressPercentage = ((currentStep + 1) / 5) * 100;
 
-  const isStep3Valid = () => {
-    return formData.interests.length > 0;
-  };
-
-  const isStep4Valid = () => {
-    return formData.hobbies.length > 0;
-  };
-
-  const isStep5Valid = () => {
-    return Object.keys(formData.aptitudeAnswers).length === APTITUDE_QUESTIONS.length;
-  };
-
-  const isCurrentStepValid = () => {
+  // Step validation
+  const isStepValid = () => {
     switch (currentStep) {
-      case 0: return isStep1Valid();
-      case 1: return isStep2Valid();
-      case 2: return isStep3Valid();
-      case 3: return isStep4Valid();
-      case 4: return isStep5Valid();
-      default: return false;
-    }
-  };
-
-  // Get step title and description
-  const getStepInfo = (step: number) => {
-    switch (step) {
-      case 0:
-        return { 
-          title: "Basic Information", 
-          description: "Tell us about yourself",
-          icon: <User className="h-5 w-5" />
-        };
-      case 1:
-        return { 
-          title: "Academic Profile", 
-          description: "Share your academic information",
-          icon: <GraduationCap className="h-5 w-5" />
-        };
-      case 2:
-        return { 
-          title: "Personal Interests", 
-          description: "Select up to 3 areas that interest you",
-          icon: <Heart className="h-5 w-5" />
-        };
-      case 3:
-        return { 
-          title: "Hobbies", 
-          description: "Select up to 5 hobbies you enjoy",
-          icon: <Gamepad2 className="h-5 w-5" />
-        };
-      case 4:
-        return { 
-          title: "Mini Aptitude Test", 
-          description: "Answer the following questions",
-          icon: <Brain className="h-5 w-5" />
-        };
+      case 0: // Basic Information
+        // Email is pre-filled and read-only, so we don't require it in validation
+        return formData.fullName && formData.age && formData.gender && formData.school && formData.region;
+      case 1: // Academic Profile
+        return formData.gwa && formData.favoriteSubject && formData.leastFavoriteSubject;
+      case 2: // Personal Interests
+        return formData.interests.length > 0;
+      case 3: // Hobbies
+        return formData.hobbies.length > 0;
+      case 4: // Aptitude Test
+        // Check if all questions have been answered
+        return aptitudeQuestions.every(q => 
+          formData.aptitudeAnswers[q.id] !== undefined && 
+          formData.aptitudeAnswers[q.id] !== ""
+        );
       default:
-        return { title: "", description: "", icon: <Circle className="h-5 w-5" /> };
+        return false;
     }
   };
 
   // Render current step content
   const renderStepContent = () => {
-    const stepInfo = getStepInfo(currentStep);
-    
     switch (currentStep) {
       case 0: // Basic Information
         return (
-          <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name *</Label>
@@ -383,7 +392,10 @@ const Assessment = () => {
                   value={formData.fullName}
                   onChange={(e) => handleInputChange("fullName", e.target.value)}
                   placeholder="Enter your full name"
+                  className="py-3"
+                  readOnly
                 />
+                <p className="text-sm text-muted-foreground">This field is pre-filled from your profile</p>
               </div>
               
               <div className="space-y-2">
@@ -394,6 +406,7 @@ const Assessment = () => {
                   value={formData.age}
                   onChange={(e) => handleInputChange("age", e.target.value)}
                   placeholder="Enter your age"
+                  className="py-3"
                 />
               </div>
             </div>
@@ -403,7 +416,7 @@ const Assessment = () => {
               <RadioGroup 
                 value={formData.gender} 
                 onValueChange={(value) => handleInputChange("gender", value)}
-                className="flex flex-wrap gap-4"
+                className="flex space-x-4"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="male" id="male" />
@@ -414,19 +427,20 @@ const Assessment = () => {
                   <Label htmlFor="female">Female</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="prefer-not-to-say" id="prefer-not-to-say" />
-                  <Label htmlFor="prefer-not-to-say">Prefer not to say</Label>
+                  <RadioGroupItem value="other" id="other" />
+                  <Label htmlFor="other">Other</Label>
                 </div>
               </RadioGroup>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="school">Current School *</Label>
+              <Label htmlFor="school">School *</Label>
               <Input
                 id="school"
                 value={formData.school}
                 onChange={(e) => handleInputChange("school", e.target.value)}
                 placeholder="Enter your current school"
+                className="py-3"
               />
             </div>
             
@@ -436,7 +450,7 @@ const Assessment = () => {
                 value={formData.region} 
                 onValueChange={(value) => handleInputChange("region", value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="py-3">
                   <SelectValue placeholder="Select your region" />
                 </SelectTrigger>
                 <SelectContent>
@@ -450,86 +464,74 @@ const Assessment = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email">Email Address *</Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange("email", e.target.value)}
-                placeholder="Enter your email"
+                placeholder="Enter your email address"
+                className="py-3"
+                readOnly
               />
+              <p className="text-sm text-muted-foreground">This field is pre-filled from your profile</p>
             </div>
-          </div>
+          </motion.div>
         );
         
       case 1: // Academic Profile
         return (
-          <div className="space-y-8">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
             <div className="space-y-2">
-              <Label>General Weighted Average (GWA) *</Label>
+              <Label htmlFor="gwa">General Weighted Average (GWA) *</Label>
               <Input
+                id="gwa"
                 type="number"
+                min="75"
+                max="100"
                 step="0.01"
-                min="1.00"
-                max="5.00"
                 value={formData.gwa}
                 onChange={(e) => handleInputChange("gwa", e.target.value)}
-                placeholder="Enter your GWA (e.g., 1.25)"
+                placeholder="Enter your GWA (75-100)"
+                className="py-3"
               />
-              <p className="text-sm text-muted-foreground">
-                Please enter your latest GWA (1.00 is the highest, 5.00 is the lowest)
-              </p>
+              <p className="text-sm text-muted-foreground">Enter your most recent GWA (75-100 scale)</p>
             </div>
             
             <div className="space-y-4">
               <Label>Favorite Subject *</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  "Mathematics",
-                  "Science",
-                  "English",
-                  "Filipino",
-                  "Araling Panlipunan",
-                  "MAPEH",
-                  "TLE",
-                  "Computer Science",
-                  "Business Math",
-                  "Statistics",
-                  "Research",
-                  "Creative Writing",
-                  "Art",
-                  "Music"
-                ].map((subject) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {SUBJECT_OPTIONS.map((subject) => (
                   <div 
-                    key={`favorite-${subject}`}
-                    onClick={() => {
-                      // If this subject was previously selected as least favorite, clear it
-                      if (formData.leastFavoriteSubject === subject) {
-                        setFormData(prev => ({ ...prev, favoriteSubject: subject, leastFavoriteSubject: "" }));
-                      } else {
-                        setFormData(prev => ({ ...prev, favoriteSubject: subject }));
-                      }
-                    }}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                    key={`favorite-${subject}`} 
+                    className={`flex items-center space-x-2 p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
                       formData.favoriteSubject === subject
-                        ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
-                        : formData.leastFavoriteSubject === subject
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'border-border bg-card hover:bg-accent/50'
+                        ? "border-primary bg-primary/10"
+                        : "border-input hover:border-primary/50"
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-4 h-4 rounded-full border ${
-                        formData.favoriteSubject === subject
-                          ? 'border-primary bg-primary'
-                          : 'border-muted-foreground'
-                      }`}>
-                        {formData.favoriteSubject === subject && (
-                          <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
-                        )}
-                      </div>
-                      <span className="text-sm font-medium">{subject}</span>
-                    </div>
+                    <RadioGroup 
+                      value={formData.favoriteSubject} 
+                      onValueChange={(value) => handleInputChange("favoriteSubject", value)}
+                      className="flex items-center space-x-2 w-full"
+                    >
+                      <RadioGroupItem 
+                        value={subject} 
+                        id={`favorite-${subject}`} 
+                        className="cursor-pointer"
+                      />
+                      <Label 
+                        htmlFor={`favorite-${subject}`} 
+                        className="cursor-pointer flex-grow"
+                      >
+                        {subject}
+                      </Label>
+                    </RadioGroup>
                   </div>
                 ))}
               </div>
@@ -537,179 +539,240 @@ const Assessment = () => {
             
             <div className="space-y-4">
               <Label>Least Favorite Subject *</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  "Mathematics",
-                  "Science",
-                  "English",
-                  "Filipino",
-                  "Araling Panlipunan",
-                  "MAPEH",
-                  "TLE",
-                  "Computer Science",
-                  "Business Math",
-                  "Statistics",
-                  "Research",
-                  "Creative Writing",
-                  "Art",
-                  "Music"
-                ].map((subject) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {SUBJECT_OPTIONS.map((subject) => (
                   <div 
-                    key={`least-${subject}`}
-                    onClick={() => {
-                      // If this subject was previously selected as favorite, clear it
-                      if (formData.favoriteSubject === subject) {
-                        setFormData(prev => ({ ...prev, leastFavoriteSubject: subject, favoriteSubject: "" }));
-                      } else {
-                        setFormData(prev => ({ ...prev, leastFavoriteSubject: subject }));
-                      }
-                    }}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                    key={`least-${subject}`} 
+                    className={`flex items-center space-x-2 p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
                       formData.leastFavoriteSubject === subject
-                        ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
-                        : formData.favoriteSubject === subject
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'border-border bg-card hover:bg-accent/50'
+                        ? "border-primary bg-primary/10"
+                        : "border-input hover:border-primary/50"
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-4 h-4 rounded-full border ${
-                        formData.leastFavoriteSubject === subject
-                          ? 'border-primary bg-primary'
-                          : 'border-muted-foreground'
-                      }`}>
-                        {formData.leastFavoriteSubject === subject && (
-                          <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
-                        )}
-                      </div>
-                      <span className="text-sm font-medium">{subject}</span>
-                    </div>
+                    <RadioGroup 
+                      value={formData.leastFavoriteSubject} 
+                      onValueChange={(value) => handleInputChange("leastFavoriteSubject", value)}
+                      className="flex items-center space-x-2 w-full"
+                    >
+                      <RadioGroupItem 
+                        value={subject} 
+                        id={`least-${subject}`} 
+                        className="cursor-pointer"
+                      />
+                      <Label 
+                        htmlFor={`least-${subject}`} 
+                        className="cursor-pointer flex-grow"
+                      >
+                        {subject}
+                      </Label>
+                    </RadioGroup>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
+            
+            {/* Visual indicator for mutual exclusivity */}
+            {(formData.favoriteSubject && formData.leastFavoriteSubject && formData.favoriteSubject === formData.leastFavoriteSubject) && (
+              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
+                You cannot select the same subject as both your favorite and least favorite.
+              </div>
+            )}
+          </motion.div>
         );
         
       case 2: // Personal Interests
         return (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Select up to 3 areas that interest you most:
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {INTERESTS.map((interest) => (
-                <div 
-                  key={interest} 
-                  className={`flex items-center space-x-3 p-4 rounded-lg border ${
-                    formData.interests.includes(interest)
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-card'
-                  }`}
-                >
-                  <Checkbox
-                    id={interest}
-                    checked={formData.interests.includes(interest)}
-                    onCheckedChange={(checked) => handleInterestChange(interest, !!checked)}
-                  />
-                  <Label 
-                    htmlFor={interest} 
-                    className="font-medium cursor-pointer flex-1"
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            <div className="space-y-4">
+              <Label>Select up to 3 areas of interest *</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {INTERESTS.map((interest) => (
+                  <div 
+                    key={interest} 
+                    className={`flex items-center space-x-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${
+                      formData.interests.includes(interest)
+                        ? "border-primary bg-primary/5"
+                        : "border-input hover:border-primary/50"
+                    }`}
+                    onClick={() => handleInterestChange(interest, !formData.interests.includes(interest))}
                   >
-                    {interest}
-                  </Label>
-                </div>
-              ))}
+                    <Checkbox
+                      id={interest}
+                      checked={formData.interests.includes(interest)}
+                      onCheckedChange={(checked) => handleInterestChange(interest, checked as boolean)}
+                    />
+                    <Label 
+                      htmlFor={interest} 
+                      className="cursor-pointer flex-grow"
+                    >
+                      {interest}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              {formData.interests.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {formData.interests.length}/3 interests
+                </p>
+              )}
             </div>
-            {formData.interests.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Selected: {formData.interests.length} of 3
-              </p>
-            )}
-          </div>
+          </motion.div>
         );
         
       case 3: // Hobbies
         return (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Select up to 5 hobbies you enjoy:
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {HOBBIES.map((hobby) => (
-                <div 
-                  key={hobby} 
-                  className={`flex items-center space-x-3 p-4 rounded-lg border ${
-                    formData.hobbies.includes(hobby)
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-card'
-                  }`}
-                >
-                  <Checkbox
-                    id={hobby}
-                    checked={formData.hobbies.includes(hobby)}
-                    onCheckedChange={(checked) => handleHobbyChange(hobby, !!checked)}
-                  />
-                  <Label 
-                    htmlFor={hobby} 
-                    className="font-medium cursor-pointer flex-1"
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            <div className="space-y-4">
+              <Label>Select up to 5 hobbies/activities *</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {HOBBIES.map((hobby) => (
+                  <div 
+                    key={hobby} 
+                    className={`flex items-center space-x-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${
+                      formData.hobbies.includes(hobby)
+                        ? "border-primary bg-primary/5"
+                        : "border-input hover:border-primary/50"
+                    }`}
+                    onClick={() => handleHobbyChange(hobby, !formData.hobbies.includes(hobby))}
                   >
-                    {hobby}
-                  </Label>
-                </div>
-              ))}
+                    <Checkbox
+                      id={hobby}
+                      checked={formData.hobbies.includes(hobby)}
+                      onCheckedChange={(checked) => handleHobbyChange(hobby, checked as boolean)}
+                    />
+                    <Label 
+                      htmlFor={hobby} 
+                      className="cursor-pointer flex-grow"
+                    >
+                      {hobby}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              {formData.hobbies.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {formData.hobbies.length}/5 hobbies
+                </p>
+              )}
             </div>
-            {formData.hobbies.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Selected: {formData.hobbies.length} of 5
-              </p>
-            )}
-          </div>
+          </motion.div>
         );
         
-      case 4: // Mini Aptitude Test
+      case 4: // Aptitude Test
         return (
-          <div className="space-y-8">
-            {APTITUDE_QUESTIONS.map((question, index) => {
-              const isAnswered = formData.aptitudeAnswers[question.id] !== undefined;
-              
-              return (
-                <div key={question.id} className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="secondary">Q{index + 1}</Badge>
-                    <h3 className="font-medium">{question.question}</h3>
-                  </div>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-8"
+          >
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold mb-2">Mini Aptitude Test</h3>
+              <p className="text-muted-foreground">
+                Answer the following questions to assess your skills and knowledge
+              </p>
+            </div>
+            
+            {loadingQuestions ? (
+              <div className="flex justify-center items-center h-32">
+                <div className="text-muted-foreground">Loading questions...</div>
+              </div>
+            ) : aptitudeQuestions.length === 0 ? (
+              <div className="text-center py-8">
+                <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  No aptitude questions available at this time.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {aptitudeQuestions.map((question, index) => {
+                  const options = Array.isArray(question.options) 
+                    ? question.options 
+                    : typeof question.options === 'string'
+                    ? JSON.parse(question.options)
+                    : [];
                   
-                  <div className="space-y-3">
-                    {question.options.map((option, optionIndex) => (
-                      <button
-                        key={optionIndex}
-                        onClick={() => handleAptitudeAnswer(question.id, optionIndex)}
-                        className={`w-full p-4 text-left rounded-lg border transition-all hover:shadow-md ${
-                          formData.aptitudeAnswers[question.id] === optionIndex
-                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                            : 'border-border bg-card hover:bg-accent/50'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                            formData.aptitudeAnswers[question.id] === optionIndex
-                              ? 'border-primary bg-primary'
-                              : 'border-muted-foreground'
-                          }`}>
-                            {formData.aptitudeAnswers[question.id] === optionIndex && (
-                              <CheckCircle className="h-3 w-3 text-white" />
-                            )}
-                          </div>
-                          <span className="text-sm font-medium">{option}</span>
+                  return (
+                    <Card key={question.id} className="p-6">
+                      <div className="flex items-start space-x-4 mb-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-primary font-semibold">{index + 1}</span>
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                        <div>
+                          <h4 className="font-medium">{question.question}</h4>
+                          {question.category && (
+                            <Badge variant="secondary" className="mt-2">
+                              {question.category}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {question.type === 'multiple_choice' ? (
+                        <RadioGroup
+                          value={formData.aptitudeAnswers[question.id]?.toString() || ""}
+                          onValueChange={(value) => handleAptitudeAnswer(question.id, parseInt(value))}
+                          className="space-y-3"
+                        >
+                          {options.map((option: string, optionIndex: number) => (
+                            <div key={optionIndex} className="flex items-center space-x-3">
+                              <RadioGroupItem 
+                                value={optionIndex.toString()} 
+                                id={`${question.id}-${optionIndex}`} 
+                              />
+                              <Label 
+                                htmlFor={`${question.id}-${optionIndex}`} 
+                                className="cursor-pointer"
+                              >
+                                {option}
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      ) : question.type === 'true_false' ? (
+                        <RadioGroup
+                          value={formData.aptitudeAnswers[question.id]?.toString() || ""}
+                          onValueChange={(value) => handleAptitudeAnswer(question.id, value)}
+                          className="space-y-3"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <RadioGroupItem value="true" id={`${question.id}-true`} />
+                            <Label htmlFor={`${question.id}-true`} className="cursor-pointer">
+                              True
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <RadioGroupItem value="false" id={`${question.id}-false`} />
+                            <Label htmlFor={`${question.id}-false`} className="cursor-pointer">
+                              False
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      ) : (
+                        <Textarea
+                          value={formData.aptitudeAnswers[question.id]?.toString() || ""}
+                          onChange={(e) => handleAptitudeAnswer(question.id, e.target.value)}
+                          placeholder="Type your answer here..."
+                          className="min-h-[120px]"
+                        />
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
         );
         
       default:
@@ -717,162 +780,133 @@ const Assessment = () => {
     }
   };
 
-  // Get step progress percentage
-  const getProgressPercentage = () => {
-    return ((currentStep + 1) / 5) * 100;
-  };
-
-  const stepInfo = getStepInfo(currentStep);
-
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      
-      <main className="flex-grow py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Stacked Cards Container */}
-          <div className="relative max-w-3xl mx-auto">
-            {/* Background Cards for Stacked Effect */}
-            <div className="absolute inset-0 -z-10 hidden sm:block">
-              <div className="absolute top-3 left-3 w-full h-full bg-card rounded-2xl shadow-lg border border-border"></div>
-              <div className="absolute top-6 left-6 w-full h-full bg-card rounded-2xl shadow-md border border-border"></div>
-            </div>
+    <ErrorBoundary>
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        
+        <main className="flex-grow pt-16">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <motion.div 
+              className="text-center mb-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                SHS Strand Assessment
+              </h1>
+              <p className="text-muted-foreground">
+                Discover which Senior High School Strand is best suited for you
+              </p>
+            </motion.div>
 
-            {/* Main Card with Stacked Appearance */}
-            <Card className="relative rounded-2xl shadow-xl border border-border overflow-hidden bg-background sm:shadow-xl">
-              {/* Step Indicator */}
-              <div className="px-4 sm:px-6 pt-6 pb-4 bg-gradient-to-r from-primary/5 to-accent/5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                  <Link to="/dashboard" className="flex items-center text-primary hover:text-primary/80 transition-colors text-sm">
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Back to Dashboard
-                  </Link>
-                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 self-start sm:self-auto">
-                    Step {currentStep + 1} of 5
-                  </Badge>
-                </div>
-                
-                {/* Progress bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">Assessment Progress</span>
-                    <span className="font-medium">{Math.round(getProgressPercentage())}%</span>
-                  </div>
-                  <Progress value={getProgressPercentage()} className="h-2" />
-                </div>
-                
-                {/* Step navigation dots - hidden on mobile, visible on tablet and up */}
-                <div className="hidden sm:flex justify-center mt-6">
-                  {[0, 1, 2, 3, 4].map((step) => {
-                    const isActive = step === currentStep;
-                    const isCompleted = step < currentStep;
-                    
-                    return (
-                      <div
-                        key={step}
-                        className={`w-3 h-3 rounded-full mx-1 transition-all ${
-                          isActive
-                            ? 'bg-primary scale-125'
-                            : isCompleted
-                            ? 'bg-success'
-                            : 'bg-muted'
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Step Content */}
-              <div className="px-4 sm:px-6 pb-6">
-                <Card className="border border-primary/20 shadow-sm rounded-xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-primary/10">
-                    <div className="flex items-center space-x-4">
-                      <div className="p-3 rounded-xl bg-primary/10 text-primary">
-                        {stepInfo.icon}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
+              <Card className="border-primary/20 shadow-lg">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        {stepInfo[currentStep].icon}
                       </div>
                       <div>
-                        <CardTitle className="text-xl sm:text-2xl">{stepInfo.title}</CardTitle>
-                        <CardDescription className="text-base">
-                          {stepInfo.description}
+                        <CardTitle className="text-xl">
+                          Step {currentStep + 1}: {stepInfo[currentStep].title}
+                        </CardTitle>
+                        <CardDescription>
+                          {stepInfo[currentStep].description}
                         </CardDescription>
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    {renderStepContent()}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Navigation */}
-              <div className="px-4 sm:px-6 pb-6">
-                <div className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t border-border gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={handlePrevious}
-                    disabled={currentStep === 0}
-                    className="flex items-center gap-2 px-4 py-2 w-full sm:w-auto"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </Button>
-                  
-                  {/* Step indicators for mobile */}
-                  <div className="flex sm:hidden justify-center w-full">
-                    <div className="flex space-x-2">
-                      {[0, 1, 2, 3, 4].map((step) => {
-                        const info = getStepInfo(step);
-                        const isActive = step === currentStep;
-                        const isCompleted = step < currentStep;
-                        
-                        return (
-                          <div key={step} className="flex flex-col items-center">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs ${
-                              isActive 
-                                ? 'bg-primary text-primary-foreground ring-2 ring-primary/30 scale-110' 
-                                : isCompleted 
-                                  ? 'bg-success text-success-foreground'
-                                  : 'bg-muted text-muted-foreground'
-                            }`}>
-                              {info.icon}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <Badge variant="secondary" className="text-sm">
+                      {currentStep + 1} of 5
+                    </Badge>
                   </div>
-
-                  <Button
-                    variant={isCurrentStepValid() ? "hero" : "outline"}
-                    onClick={handleNext}
-                    disabled={!isCurrentStepValid() || isSubmitting}
-                    className="flex items-center gap-2 px-4 py-2 w-full sm:w-auto"
-                  >
-                    {currentStep === 4 ? (
-                      isSubmitting ? "Submitting..." : "Get Results"
-                    ) : (
-                      "Next"
-                    )}
-                    {currentStep < 4 && <ChevronRight className="h-4 w-4" />}
-                  </Button>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progress</span>
+                      <span>{Math.round(progressPercentage)}%</span>
+                    </div>
+                    <Progress value={progressPercentage} className="h-2" />
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="py-6">
+                  {renderStepContent()}
+                </CardContent>
+                
+                <div className="px-6 pb-6">
+                  <div className="flex justify-between">
+                    <Button
+                      variant="outline"
+                      onClick={handlePrevious}
+                      disabled={currentStep === 0}
+                      className="flex items-center"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-2" />
+                      Previous
+                    </Button>
+                    
+                    <Button
+                      onClick={handleNext}
+                      disabled={!isStepValid() || isSubmitting}
+                      className="flex items-center group"
+                    >
+                      {currentStep === 4 ? (
+                        <>
+                          {isSubmitting ? (
+                            "Submitting..."
+                          ) : (
+                            <>
+                              Submit Assessment
+                              <Award className="h-4 w-4 ml-2 group-hover:rotate-12 transition-transform" />
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          Next
+                          <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            </motion.div>
 
-            {/* Help Text */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Take your time to think about each question. You can always go back to change your answers.
-              </p>
-            </div>
+            {/* Progress indicators */}
+            <motion.div 
+              className="flex justify-center mt-8 space-x-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              {stepInfo.map((_, index) => (
+                <div
+                  key={index}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    index === currentStep
+                      ? "bg-primary scale-125"
+                      : index < currentStep
+                      ? "bg-primary/50"
+                      : "bg-muted"
+                  }`}
+                />
+              ))}
+            </motion.div>
           </div>
-        </div>
-      </main>
+        </main>
 
-      <Footer />
-      <ScrollToTop />
-    </div>
+        <Footer />
+        <ScrollToTop />
+      </div>
+    </ErrorBoundary>
   );
 };
 

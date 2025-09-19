@@ -9,16 +9,22 @@ import { ArrowLeft, Shield } from 'lucide-react';
 
 export default function AdminAuth() {
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, profile, user } = useAuth();
+  const [authChecked, setAuthChecked] = useState(false);
+  const { signIn, profile, user, loading } = useAuth();
   const navigate = useNavigate();
 
   // Navigate to admin dashboard when profile loads and user is admin
   useEffect(() => {
-    if (user && profile && profile.role === 'admin') {
-      console.log('Admin authenticated, navigating to admin dashboard');
-      navigate('/admin/dashboard');
+    // Wait for auth loading to complete before checking
+    if (!loading) {
+      setAuthChecked(true);
+      
+      if (user && profile && profile.role === 'admin') {
+        console.log('Admin authenticated, navigating to admin dashboard');
+        navigate('/admin/dashboard');
+      }
     }
-  }, [user, profile, navigate]);
+  }, [user, profile, navigate, loading]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -37,6 +43,29 @@ export default function AdminAuth() {
     
     setIsLoading(false);
   };
+
+  // Show loading state while checking auth status
+  if (loading || !authChecked) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <Shield className="w-6 h-6 text-primary animate-pulse" />
+              </div>
+            </div>
+            <p className="text-muted-foreground">Loading authentication...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated, redirect to dashboard
+  if (user && profile && profile.role === 'admin') {
+    return null; // Will be redirected by useEffect
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">
@@ -60,7 +89,7 @@ export default function AdminAuth() {
           </CardHeader>
           
           <CardContent>
-            <form onSubmit={handleSignIn} className="space-y-4">
+            <form onSubmit={(e) => handleSignIn(e)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="admin-email">Email</Label>
                 <Input 

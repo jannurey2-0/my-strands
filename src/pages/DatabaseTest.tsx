@@ -3,6 +3,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Database } from "@/integrations/supabase/types";
+
+type Profile = Database['public']['Tables']['profiles']['Insert'];
 
 const DatabaseTest = () => {
   const { user, profile } = useAuth();
@@ -48,7 +51,7 @@ const DatabaseTest = () => {
         profiles: { data: profilesData, error: profilesError },
         assessmentTable: { data: assessmentTableData, error: assessmentTableError },
         tableStructure: { data: tableInfo, error: tableInfoError },
-        rlsTest: { data: rlsTest, error: rlsError }
+        rlsTest: { data: rlsTest, rlsError }
       });
     } catch (error) {
       console.error("Database test error:", error);
@@ -124,6 +127,96 @@ const DatabaseTest = () => {
     }
   };
 
+  // New test function to specifically check for user profile
+  const testUserProfile = async () => {
+    if (!user) {
+      setTestResults({ error: "User not authenticated" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log("Checking profile for user ID:", user.id);
+
+      // Try to find profile by user_id
+      const { data: profileByUserId, error: userIdError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      console.log("Profile by user_id:", { profileByUserId, userIdError });
+
+      // Try to find profile by email
+      const { data: profileByEmail, error: emailError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', user.email)
+        .maybeSingle();
+
+      console.log("Profile by email:", { profileByEmail, emailError });
+
+      // Check if any profiles exist at all
+      const { data: allProfiles, error: allProfilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .limit(5);
+
+      console.log("All profiles:", { allProfiles, allProfilesError });
+
+      setTestResults({
+        profileByUserId: { data: profileByUserId, error: userIdError },
+        profileByEmail: { data: profileByEmail, error: emailError },
+        allProfiles: { data: allProfiles, error: allProfilesError }
+      });
+    } catch (error) {
+      console.error("User profile test error:", error);
+      setTestResults({ userProfileTest: { error } });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New function to manually create a profile if it doesn't exist
+  const createProfile = async () => {
+    if (!user) {
+      setTestResults({ error: "User not authenticated" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log("Creating profile for user:", user);
+
+      const newProfile: Profile = {
+        user_id: user.id,
+        email: user.email,
+        full_name: user.email.split('@')[0], // Use email prefix as name
+        role: 'student'
+      };
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert(newProfile)
+        .select()
+        .single();
+
+      console.log("Profile creation result:", { data, error });
+
+      setTestResults({
+        profileCreation: { data, error }
+      });
+
+      // Refresh auth state after profile creation
+      window.location.reload();
+    } catch (error) {
+      console.error("Profile creation error:", error);
+      setTestResults({ profileCreation: { error } });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -148,6 +241,12 @@ const DatabaseTest = () => {
               </Button>
               <Button onClick={testAuthInfo} disabled={loading}>
                 {loading ? "Getting Auth Info..." : "Get Auth Info"}
+              </Button>
+              <Button onClick={testUserProfile} disabled={loading || !user}>
+                {loading ? "Checking User Profile..." : "Check User Profile"}
+              </Button>
+              <Button onClick={createProfile} disabled={loading || !user} variant="destructive">
+                {loading ? "Creating Profile..." : "Create Profile"}
               </Button>
             </div>
 

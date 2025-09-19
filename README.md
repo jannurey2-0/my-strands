@@ -60,6 +60,17 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Error Handling
+
+This project implements Error Boundaries to prevent complete application crashes:
+
+- **Global Error Boundary**: Wraps all routes in App.tsx to catch errors at the page level
+- **Component Error Boundaries**: Individual page components (Dashboard, Results, Schools, Assessment) are wrapped with Error Boundaries
+- **Chart Error Boundaries**: Specific boundaries for chart components that might fail due to data issues
+- **Fallback UI**: User-friendly error displays with retry options when components fail
+
+To test error handling, visit `/test-error` route which demonstrates the Error Boundary functionality.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/9bf8149b-91c5-45bc-b737-b33f17e743bf) and click on Share -> Publish.

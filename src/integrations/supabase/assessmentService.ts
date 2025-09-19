@@ -17,7 +17,8 @@ export interface AssessmentData {
   };
   personalInterests: string[];
   hobbies: string[];
-  aptitudeAnswers: Record<number, number>;
+  // keys are question ids (string or number) and values can be numeric choice indices or free-text answers
+  aptitudeAnswers: Record<string, number | string>;
 }
 
 export const assessmentService = {
@@ -137,6 +138,26 @@ export const assessmentService = {
       return data;
     } catch (error) {
       console.error('Error in getAllAssessments:', error);
+      throw error;
+    }
+  },
+
+  // Get all schools
+  getAllSchools: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('schools')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching schools:', error);
+        throw new Error(`Failed to fetch schools: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error in getAllSchools:', error);
       throw error;
     }
   }

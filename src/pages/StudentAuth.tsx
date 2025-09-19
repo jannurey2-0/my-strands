@@ -10,16 +10,22 @@ import { ArrowLeft, GraduationCap } from 'lucide-react';
 
 export default function StudentAuth() {
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signIn, profile, user } = useAuth();
+  const [authChecked, setAuthChecked] = useState(false);
+  const { signUp, signIn, profile, user, loading } = useAuth();
   const navigate = useNavigate();
 
   // Navigate to student dashboard when profile loads and user is student
   useEffect(() => {
-    if (user && profile && profile.role === 'student') {
-      console.log('Student authenticated, navigating to student dashboard');
-      navigate('/dashboard');
+    // Wait for auth loading to complete before checking
+    if (!loading) {
+      setAuthChecked(true);
+      
+      if (user && profile && profile.role === 'student') {
+        console.log('Student authenticated, navigating to student dashboard');
+        navigate('/dashboard');
+      }
     }
-  }, [user, profile, navigate]);
+  }, [user, profile, navigate, loading]);
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -55,6 +61,29 @@ export default function StudentAuth() {
     
     setIsLoading(false);
   };
+
+  // Show loading state while checking auth status
+  if (loading || !authChecked) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <GraduationCap className="w-6 h-6 text-primary animate-pulse" />
+              </div>
+            </div>
+            <p className="text-muted-foreground">Loading authentication...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated, redirect to dashboard
+  if (user && profile && profile.role === 'student') {
+    return null; // Will be redirected by useEffect
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">

@@ -1,9 +1,11 @@
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { clearAuthStorage } from '@/lib/authUtils';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
+// Define strong types for our auth context
 interface Profile {
   id: string;
   user_id: string;
@@ -14,27 +16,45 @@ interface Profile {
   updated_at: string;
 }
 
-interface AuthContextType {
+interface AuthState {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signOut: () => Promise<void>;
 }
 
+interface AuthContextType extends AuthState {
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<void>;
+  refreshAuthState: () => Promise<void>;
+}
+
+// Create context with undefined check
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  // State management
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    session: null,
+    profile: null,
+    loading: true
+  });
+  
+  // Utilities
   const { toast } = useToast();
   const navigate = useNavigate();
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialized = useRef(false);
+  const mounted = useRef(true);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update state safely (only if component is mounted)
+  const safeSetAuthState = useCallback((update: Partial<AuthState>) => {
+    if (mounted.current) {
+      setAuthState(curr => ({ ...curr, ...update }));
+    }
+  }, []);
 
   // Clear timeout safely
   const clearLoadingTimeout = () => {
@@ -44,146 +64,240 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Set a timeout to prevent infinite loading
-  const setLoadingWithTimeout = (isLoading: boolean) => {
+  // Set loading state without timeout
+  const setLoadingState = (isLoading: boolean) => {
     if (!isLoading) {
       clearLoadingTimeout();
-      setLoading(false);
+      safeSetAuthState({ loading: false });
       return;
     }
 
     // Set loading to true immediately
-    setLoading(true);
-    
-    // Set a timeout to force loading to false after 10 seconds
-    clearLoadingTimeout();
-    loadingTimeoutRef.current = setTimeout(() => {
-      console.warn('Auth loading timeout - forcing loading to false');
-      setLoading(false);
-    }, 10000); // 10 seconds timeout
+    safeSetAuthState({ loading: true });
   };
+
+  // Create a profile for a user if it doesn't exist
+  const createProfile = useCallback(async (user: User): Promise<Profile | null> => {
+    try {
+      console.log('Creating profile for user:', user.id);
+      
+      const newProfile = {
+        user_id: user.id,
+        email: user.email!,
+        full_name: user.email!.split('@')[0], // Use email prefix as name
+        role: 'student' as const
+      };
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert(newProfile)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        toast({
+          title: "Profile creation failed",
+          description: "Unable to create your profile. Please contact support.",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      console.log('Profile created successfully:', data);
+      toast({
+        title: "Profile created",
+        description: "Your profile has been successfully created."
+      });
+      
+      return data;
+    } catch (error) {
+      console.error('Error in createProfile:', error);
+      toast({
+        title: "Profile creation error",
+        description: "An unexpected error occurred while creating your profile.",
+        variant: "destructive"
+      });
+      return null;
+    }
+  }, [toast]);
+
+  // Fetch profile with retries and timeout
+  const fetchProfile = useCallback(async (userId: string, user: User): Promise<Profile | null> => {
+    const MAX_RETRIES = 2; // Reduced retries
+    const TIMEOUT_MS = 5000; // Reduced timeout to 5 seconds
+    const RETRY_DELAY_MS = 1000; // Reduced retry delay
+
+    const fetchWithTimeout = async (attempt: number): Promise<Profile | null> => {
+      try {
+        console.log(`Attempting to fetch profile for user ${userId}, attempt ${attempt}/${MAX_RETRIES}`);
+        
+        // Create a timeout promise
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Profile fetch timeout after ${TIMEOUT_MS/1000} seconds (attempt ${attempt}/${MAX_RETRIES})`));
+          }, TIMEOUT_MS);
+        });
+
+        // Create the fetch promise
+        const fetchPromise = supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+          .then(async ({ data, error }) => {
+            if (error) {
+              console.error(`Supabase error on attempt ${attempt}:`, error);
+              
+              // If profile not found, try to create it
+              if (error.code === 'PGRST116') { // No rows found
+                console.log('Profile not found, attempting to create one...');
+                const newProfile = await createProfile(user);
+                return newProfile;
+              }
+              
+              throw error;
+            }
+            console.log(`Profile fetch successful on attempt ${attempt}:`, data);
+            return data as Profile;
+          });
+
+        // Race between fetch and timeout
+        const profile: Profile | null = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        if (!mounted.current) return null;
+        console.log('Profile loaded successfully:', profile);
+        return profile;
+
+      } catch (error) {
+        console.error(`Profile fetch attempt ${attempt}/${MAX_RETRIES} failed:`, error);
+        
+        if (!mounted.current) return null;
+        
+        // Retry logic
+        if (attempt < MAX_RETRIES) {
+          console.log(`Retrying profile fetch in ${RETRY_DELAY_MS}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          return fetchWithTimeout(attempt + 1);
+        }
+        
+        console.warn('Profile fetch failed after all retries');
+        // Don't show error toast to user to avoid confusion
+        // Just return null to allow auth to continue
+        return null;
+      }
+    };
+
+    const profile = await fetchWithTimeout(1);
+    if (mounted.current) {
+      safeSetAuthState({ profile, loading: false });
+    }
+    return profile;
+  }, [safeSetAuthState, toast, createProfile]);
 
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-    
-    let mounted = true;
-    setLoadingWithTimeout(true); // Start with loading true and set timeout
-    
+
     console.log('AuthProvider initializing...');
+    setLoadingState(true);
     
-    // First, check for existing session
-    supabase.auth.getSession().then(async ({ data: { session: initialSession }, error }) => {
-      console.log('Initial session check result:', { initialSession, error });
-      
-      if (!mounted) return;
-      
-      if (error) {
-        console.error('Error getting initial session:', error);
-        // Clear any potentially corrupted session
-        await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setLoadingWithTimeout(false);
-        return;
-      }
-      
-      if (initialSession?.user) {
-        console.log('Found existing session, setting user and session');
-        setSession(initialSession);
-        setUser(initialSession.user);
+    const initializeSession = async () => {
+      try {
+        console.log('Getting initial session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        // Fetch user profile
-        try {
-          console.log('Fetching profile for user:', initialSession.user.id);
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', initialSession.user.id)
-            .maybeSingle();
-          
-          console.log('Profile fetch result:', { profileData, profileError });
-          if (profileError) {
-            console.error('Error fetching profile:', profileError);
+        if (!mounted.current) return;
+        
+        if (error) {
+          console.error('Error getting initial session:', error);
+          await supabase.auth.signOut();
+          if (mounted.current) {
+            safeSetAuthState({
+              session: null,
+              user: null,
+              profile: null,
+              loading: false
+            });
           }
-          
-          if (mounted) {
-            setProfile(profileData || null);
+          return;
+        }
+        
+        if (session?.user) {
+          console.log('Found existing session, setting user and session');
+          if (mounted.current) {
+            safeSetAuthState({
+              session,
+              user: session.user
+            });
+            // Try to fetch profile but don't block auth if it fails
+            fetchProfile(session.user.id, session.user).catch(error => {
+              console.error('Non-blocking profile fetch error during init:', error);
+              // Even if profile fetch fails, we still want to stop loading
+              if (mounted.current) {
+                safeSetAuthState({ loading: false });
+              }
+            });
           }
-        } catch (profileFetchError) {
-          console.error('Error fetching profile:', profileFetchError);
-          if (mounted) {
-            setProfile(null);
-          }
-        } finally {
-          if (mounted) {
-            setLoadingWithTimeout(false);
+        } else {
+          console.log('No valid session found');
+          if (mounted.current) {
+            safeSetAuthState({
+              session: null,
+              user: null,
+              profile: null,
+              loading: false
+            });
           }
         }
-      } else {
-        console.log('No valid session found');
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        if (mounted) {
-          setLoadingWithTimeout(false);
+      } catch (error) {
+        console.error('Error in initial session check:', error);
+        if (mounted.current) {
+          safeSetAuthState({
+            session: null,
+            user: null,
+            profile: null,
+            loading: false
+          });
         }
       }
-    }).catch(err => {
-      console.error('Error in initial session check:', err);
-      if (mounted) {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setLoadingWithTimeout(false);
-      }
-    });
+    };
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', { event, session });
         
-        if (!mounted) return;
+        if (!mounted.current) return;
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        safeSetAuthState({
+          session,
+          user: session?.user ?? null
+        });
         
         if (session?.user) {
-          // Fetch user profile when session changes
-          try {
-            console.log('Fetching profile for user:', session.user.id);
-            const { data: profileData, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .maybeSingle();
-            
-            console.log('Profile fetch result:', { profileData, error, userId: session.user.id });
-            if (error) {
-              console.error('Error fetching profile:', error);
+          // Try to fetch profile but don't block auth if it fails
+          fetchProfile(session.user.id, session.user).catch(error => {
+            console.error('Non-blocking profile fetch error:', error);
+            // Even if profile fetch fails, we still want to stop loading
+            if (mounted.current) {
+              safeSetAuthState({ loading: false });
             }
-            
-            if (mounted) {
-              setProfile(profileData || null);
-            }
-          } catch (error) {
-            console.error('Error fetching profile:', error);
-            if (mounted) {
-              setProfile(null);
-            }
-          }
+          });
         } else {
-          if (mounted) {
-            setProfile(null);
+          if (mounted.current) {
+            safeSetAuthState({ profile: null, loading: false });
           }
         }
       }
     );
 
+    // Initialize session
+    initializeSession();
+
+    // Cleanup
     return () => {
-      mounted = false;
+      mounted.current = false;
       clearLoadingTimeout();
       subscription.unsubscribe();
     };
@@ -242,22 +356,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     console.log("Attempting to sign out");
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error("Sign out error:", error);
-        toast({
-          title: "Sign out failed",
-          description: error.message,
-          variant: "destructive"
-        });
-        throw error;
-      } else {
-        console.log("Sign out successful");
-        // Explicitly clear state
-        setUser(null);
-        setSession(null);
-        setProfile(null);
+      // Clear state immediately to prevent UI issues
+      safeSetAuthState({
+        user: null,
+        session: null,
+        profile: null,
+        loading: false
+      });
+      
+      // Clear any remaining timeouts
+      clearLoadingTimeout();
+      
+      // Then try to sign out from Supabase (this might fail if session is already gone)
+      // If the request fails (403 / AuthSessionMissingError) we still want to
+      // ensure local client-side tokens are removed so a page refresh doesn't
+      // resurrect the session from stale storage.
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.warn("Supabase sign out warning (not critical):", error);
+          // Fallback: clear local/session storage keys used by Supabase
+          try {
+            clearAuthStorage();
+          } catch (e) {
+            console.error('Error clearing auth storage as fallback:', e);
+          }
+          // Attempt to remove known token key just in case
+          try {
+            localStorage.removeItem('supabase.auth.token');
+            sessionStorage.removeItem('supabase.auth.token');
+          } catch (e) {
+            // ignore
+          }
+        } else {
+          console.log("Supabase sign out successful");
+          // Also clear any leftover client storage to be safe
+          try {
+            clearAuthStorage();
+          } catch (e) {
+            console.error('Error clearing auth storage after successful signOut:', e);
+          }
+        }
+      } catch (supabaseError) {
+        console.warn("Supabase sign out failed (not critical):", supabaseError);
+        // Fallback: clear local/session storage keys used by Supabase
+        try {
+          clearAuthStorage();
+        } catch (e) {
+          console.error('Error clearing auth storage after supabase.signOut exception:', e);
+        }
+        // This is not critical - we've already cleared local state
       }
+      
+      console.log("Sign out process completed");
     } catch (error) {
       console.error("Sign out error:", error);
       toast({
@@ -265,26 +416,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "An unexpected error occurred during sign out",
         variant: "destructive"
       });
-      throw error;
+      // Even if there's an error, clear local state to prevent stuck sessions
+      safeSetAuthState({
+        user: null,
+        session: null,
+        profile: null,
+        loading: false
+      });
     }
   };
 
   // Expose a method to force refresh the auth state
   const refreshAuthState = async () => {
     console.log("Refreshing auth state");
-    setLoadingWithTimeout(true);
+    setLoadingState(true);
     
     try {
       const { data: { session: currentSession }, error } = await supabase.auth.getSession();
       
       if (error) {
         console.error("Error refreshing session:", error);
-        setUser(null);
-        setSession(null);
-        setProfile(null);
+        safeSetAuthState({
+          user: null,
+          session: null,
+          profile: null
+        });
       } else {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        safeSetAuthState({
+          session: currentSession,
+          user: currentSession?.user ?? null
+        });
         
         if (currentSession?.user) {
           // Fetch user profile
@@ -296,34 +457,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (profileError) {
             console.error('Error fetching profile:', profileError);
-            setProfile(null);
+            safeSetAuthState({ profile: null });
           } else {
-            setProfile(profileData || null);
+            safeSetAuthState({ profile: profileData || null });
           }
         } else {
-          setProfile(null);
+          safeSetAuthState({ profile: null });
         }
       }
     } catch (error) {
       console.error("Error refreshing auth state:", error);
-      setUser(null);
-      setSession(null);
-      setProfile(null);
+      safeSetAuthState({
+        user: null,
+        session: null,
+        profile: null
+      });
     } finally {
-      setLoadingWithTimeout(false);
+      setLoadingState(false);
     }
   };
 
   return (
     <AuthContext.Provider value={{
-      user,
-      session,
-      profile,
-      loading,
+      ...authState,
       signUp,
       signIn,
       signOut,
-      // Note: refreshAuthState is not exposed in the context type for backward compatibility
+      refreshAuthState
     }}>
       {children}
     </AuthContext.Provider>

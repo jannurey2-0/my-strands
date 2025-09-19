@@ -5,17 +5,21 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
+import TestErrorComponent from "./components/TestErrorComponent";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Assessment from "./pages/Assessment";
 import Results from "./pages/Results";
 import Careers from "./pages/Careers";
+import Schools from "./pages/Schools";
 import StudentAuth from "./pages/StudentAuth";
 import AdminAuth from "./pages/AdminAuth";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import TestAssessment from "./pages/TestAssessment";
 import DatabaseTest from "./pages/DatabaseTest";
+import AuthDebug from "./pages/AuthDebug";
 
 // Debug component to log current route
 const RouteDebugger = () => {
@@ -34,60 +38,112 @@ const AppContent = () => (
       <Toaster />
       <Sonner />
       <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/student/login" element={<StudentAuth />} />
-        <Route path="/admin/login" element={<AdminAuth />} />
+        <Route path="/" element={
+          <ErrorBoundary>
+            <Index />
+          </ErrorBoundary>
+        } />
+        <Route path="/student/login" element={
+          <ErrorBoundary>
+            <StudentAuth />
+          </ErrorBoundary>
+        } />
+        <Route path="/admin/login" element={
+          <ErrorBoundary>
+            <AdminAuth />
+          </ErrorBoundary>
+        } />
         <Route 
           path="/dashboard" 
           element={
-            <ProtectedRoute requiredRole="student">
-              <Dashboard />
-            </ProtectedRoute>
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="student">
+                <Dashboard />
+              </ProtectedRoute>
+            </ErrorBoundary>
           } 
         />
         <Route 
           path="/assessment" 
           element={
-            <ProtectedRoute requiredRole="student">
-              <Assessment />
-            </ProtectedRoute>
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="student">
+                <Assessment />
+              </ProtectedRoute>
+            </ErrorBoundary>
           } 
         />
         <Route 
           path="/results" 
           element={
-            <ProtectedRoute requiredRole="student">
-              <Results />
-            </ProtectedRoute>
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="student">
+                <Results />
+              </ProtectedRoute>
+            </ErrorBoundary>
           } 
         />
-        <Route path="/careers" element={<Careers />} />
+        <Route path="/careers" element={
+          <ErrorBoundary>
+            <Careers />
+          </ErrorBoundary>
+        } />
+        <Route path="/schools" element={
+          <ErrorBoundary>
+            <Schools />
+          </ErrorBoundary>
+        } />
         <Route 
           path="/admin/dashboard" 
           element={
-            <ProtectedRoute requiredRole="admin">
-              <AdminDashboard />
-            </ProtectedRoute>
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            </ErrorBoundary>
           } 
         />
         <Route 
           path="/test-assessment" 
           element={
-            <ProtectedRoute requiredRole="student">
-              <TestAssessment />
-            </ProtectedRoute>
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="student">
+                <TestAssessment />
+              </ProtectedRoute>
+            </ErrorBoundary>
           } 
         />
         <Route 
           path="/database-test" 
           element={
-            <ProtectedRoute requiredRole="student">
-              <DatabaseTest />
-            </ProtectedRoute>
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="student">
+                <DatabaseTest />
+              </ProtectedRoute>
+            </ErrorBoundary>
           } 
         />
+        <Route 
+          path="/auth-debug" 
+          element={
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="student">
+                <AuthDebug />
+              </ProtectedRoute>
+            </ErrorBoundary>
+          } 
+        />
+        <Route path="/test-error" element={
+          <ErrorBoundary>
+            <TestErrorComponent />
+          </ErrorBoundary>
+        } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={
+          <ErrorBoundary>
+            <NotFound />
+          </ErrorBoundary>
+        } />
       </Routes>
     </TooltipProvider>
   </AuthProvider>

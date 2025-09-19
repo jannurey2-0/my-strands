@@ -1,0 +1,261 @@
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+
+interface Profile {
+  id: string;
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: 'student' | 'admin';
+  created_at: string;
+  updated_at: string;
+}
+
+interface AuthState {
+  user: User | null;
+  session: Session | null;
+  profile: Profile | null;
+  loading: boolean;
+}
+
+interface AuthContextType extends AuthState {
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<void>;
+  refreshAuthState: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    session: null,
+    profile: null,
+    loading: true
+  });
+  
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const initialized = useRef(false);
+  const mounted = useRef(true);
+  
+  const safeSetAuthState = useCallback((update: Partial<AuthState>) => {
+    if (mounted.current) {
+      setAuthState(curr => ({ ...curr, ...update }));
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 8000;
+    const RETRY_DELAY_MS = 1000;
+
+    const fetchWithTimeout = async (attempt: number): Promise<Profile | null> => {
+      try {
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Profile fetch timeout (attempt ${attempt}/${MAX_RETRIES})`));
+          }, TIMEOUT_MS);
+        });
+
+        const fetchPromise = supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+          .then(({ data, error }) => {
+            if (error) throw error;
+            return data as Profile;
+          });
+
+        const profile = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        if (!mounted.current) return null;
+        console.log('Profile loaded successfully:', profile);
+        return profile;
+
+      } catch (error) {
+        console.error(`Profile fetch attempt ${attempt}/${MAX_RETRIES} failed:`, error);
+        
+        if (!mounted.current) return null;
+        
+        if (attempt < MAX_RETRIES) {
+          console.log(`Retrying profile fetch in ${RETRY_DELAY_MS}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          return fetchWithTimeout(attempt + 1);
+        }
+        
+        console.warn('Profile fetch failed after all retries');
+        return null;
+      }
+    };
+
+    const profile = await fetchWithTimeout(1);
+    if (mounted.current) {
+      safeSetAuthState({ profile, loading: false });
+    }
+    return profile;
+  }, [safeSetAuthState]);
+
+  const refreshAuthState = useCallback(async () => {
+    try {
+      safeSetAuthState({ loading: true });
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) throw error;
+      
+      if (session?.user) {
+        safeSetAuthState({ session, user: session.user });
+        await fetchProfile(session.user.id);
+      } else {
+        safeSetAuthState({ 
+          session: null, 
+          user: null, 
+          profile: null, 
+          loading: false 
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing auth state:', error);
+      safeSetAuthState({ 
+        session: null, 
+        user: null, 
+        profile: null, 
+        loading: false 
+      });
+    }
+  }, [fetchProfile, safeSetAuthState]);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    console.log('Initializing auth provider...');
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+
+        if (!mounted.current) return;
+
+        if (session?.user) {
+          safeSetAuthState({ session, user: session.user });
+          await fetchProfile(session.user.id);
+        } else {
+          safeSetAuthState({
+            session: null,
+            user: null,
+            profile: null,
+            loading: false
+          });
+        }
+      }
+    );
+
+    refreshAuthState();
+
+    return () => {
+      mounted.current = false;
+      subscription.unsubscribe();
+    };
+  }, [refreshAuthState, fetchProfile, safeSetAuthState]);
+
+  const signUp = async (email: string, password: string, fullName: string) => {
+    try {
+      safeSetAuthState({ loading: true });
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName }
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Check your email",
+        description: "We've sent you a confirmation link to complete your signup."
+      });
+
+      return { error: null };
+    } catch (error) {
+      console.error('Sign up error:', error);
+      toast({
+        title: "Sign up failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive"
+      });
+      return { error: error instanceof Error ? error : new Error('Sign up failed') };
+    } finally {
+      safeSetAuthState({ loading: false });
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      safeSetAuthState({ loading: true });
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('Sign in error:', error);
+      toast({
+        title: "Sign in failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive"
+      });
+      return { error: error instanceof Error ? error : new Error('Sign in failed') };
+    }
+    // Don't set loading false here - let the auth state change handler do it
+  };
+
+  const signOut = async () => {
+    try {
+      safeSetAuthState({ loading: true });
+      await supabase.auth.signOut();
+      // Auth state change listener will handle state updates
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast({
+        title: "Sign out failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive"
+      });
+      safeSetAuthState({ loading: false });
+      throw error;
+    }
+  };
+
+  const value = {
+    ...authState,
+    signUp,
+    signIn,
+    signOut,
+    refreshAuthState
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
