@@ -139,8 +139,8 @@ const Index = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 lg:py-28 flex-grow">
+      {/* Hero Section - Added pt-20 for mobile to prevent overlap with fixed header */}
+      <section className="relative overflow-hidden py-20 lg:py-28 flex-grow pt-20">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -236,7 +236,7 @@ const Index = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/30 to-transparent" />
               </div>
               
-              {/* Floating Cards */}
+              {/* Floating Cards - Adjusted positioning for mobile to prevent overlap with header */}
               <motion.div 
                 className="absolute -top-4 -left-4 bg-white rounded-lg shadow-lg p-4 animate-float md:-top-4 md:-left-4 lg:-top-4 lg:-left-4 hidden sm:block"
                 initial={{ opacity: 0, y: 20 }}

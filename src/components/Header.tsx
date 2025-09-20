@@ -199,7 +199,7 @@ export const Header = () => {
                   variant="outline" 
                   size="sm" 
                   onClick={handleSignOut}
-                  className="group"
+                  className="group hidden md:inline-flex"
                 >
                   Sign Out
                   <motion.div
@@ -213,24 +213,27 @@ export const Header = () => {
               </>
             ) : (
               <>
-                <Button variant="ghost" size="sm" asChild className="group">
-                  <Link to="/student/login">
-                    <User className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                    <span className="hidden sm:inline ml-2">Student Login</span>
-                  </Link>
-                </Button>
-                <Button variant="hero" size="sm" asChild className="group">
-                  <Link to="/admin/login">
-                    <span>Admin Login</span>
-                    <motion.div
-                      className="ml-2"
-                      whileHover={{ x: 5, rotate: 10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <GraduationCap className="h-4 w-4" />
-                    </motion.div>
-                  </Link>
-                </Button>
+                {/* Hide signin buttons on mobile since they're in the hamburger menu */}
+                <div className="hidden md:flex md:items-center md:space-x-2">
+                  <Button variant="ghost" size="sm" asChild className="group">
+                    <Link to="/student/login">
+                      <User className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                      <span className="hidden sm:inline ml-2">Student Login</span>
+                    </Link>
+                  </Button>
+                  <Button variant="hero" size="sm" asChild className="group">
+                    <Link to="/admin/login">
+                      <span>Admin Login</span>
+                      <motion.div
+                        className="ml-2"
+                        whileHover={{ x: 5, rotate: 10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <GraduationCap className="h-4 w-4" />
+                      </motion.div>
+                    </Link>
+                  </Button>
+                </div>
               </>
             )}
             
