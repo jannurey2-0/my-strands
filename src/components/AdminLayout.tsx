@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { 
@@ -8,7 +8,9 @@ import {
   BookOpen, 
   LogOut,
   Menu,
-  X
+  X,
+  User,
+  ChevronDown
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -22,6 +24,22 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
   const { profile, signOut, user, session } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -118,24 +136,17 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
           </ul>
         </nav>
         
-        <div className="p-4 border-t bg-muted/50">
-          <div className="flex items-center mb-3">
+        {/* User profile moved to bottom of sidebar */}
+        <div className="p-4 border-t bg-muted/50 mt-auto">
+          <div className="flex items-center">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2">
-              <Users className="h-4 w-4 text-primary" />
+              <User className="h-4 w-4 text-primary" />
             </div>
             <div className="text-sm">
               <div className="font-medium text-foreground">{profile?.full_name || 'Administrator'}</div>
               <div className="text-muted-foreground text-xs">Administrator</div>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={handleSignOut}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
         </div>
       </aside>
 
@@ -157,15 +168,37 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
                 {navigationItems.find(item => item.id === activeSection)?.label || 'Admin Panel'}
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center space-x-2 bg-muted/50 rounded-lg px-3 py-2">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Users className="h-3 w-3 text-primary" />
+            
+            {/* User profile dropdown in header */}
+            <div className="relative" ref={userMenuRef}>
+              <Button 
+                variant="ghost" 
+                className="flex items-center space-x-2"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+              >
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="h-4 w-4 text-primary" />
                 </div>
-                <div className="text-sm">
-                  <div className="font-medium text-foreground">{profile?.full_name || 'Administrator'}</div>
+                <div className="hidden md:flex flex-col items-start">
+                  <span className="text-sm font-medium text-foreground">{profile?.full_name || 'Administrator'}</span>
+                  <span className="text-xs text-muted-foreground">Administrator</span>
                 </div>
-              </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </Button>
+              
+              {/* Dropdown menu */}
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-background border rounded-md shadow-lg py-1 z-50">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start px-4 py-2"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </header>

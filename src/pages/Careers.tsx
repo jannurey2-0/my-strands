@@ -6,7 +6,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   Microscope,
   Calculator,
@@ -44,9 +44,18 @@ interface CareerPath {
   }>;
 }
 
+// Add this interface for card hover state
+interface CardHoverState {
+  [key: string]: {
+    isHovering: boolean;
+    mousePosition: { x: number; y: number };
+  };
+}
+
 const Careers = () => {
   const [selectedStrand, setSelectedStrand] = useState<CareerPath | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [cardHoverStates, setCardHoverStates] = useState<CardHoverState>({});
   
   const careerPaths: CareerPath[] = [
     {
@@ -242,6 +251,21 @@ const Careers = () => {
     setIsModalOpen(true);
   };
 
+  // Handle mouse move for gradient effect
+  const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>, strand: string) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCardHoverStates(prev => ({
+      ...prev,
+      [strand]: {
+        isHovering: true,
+        mousePosition: {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        }
+      }
+    }));
+  };
+
   // Get badge variant based on demand
   const getDemandBadgeVariant = (demand: string) => {
     switch (demand) {
@@ -277,7 +301,9 @@ const Careers = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            <div 
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
+            >
               {careerPaths.map((path, index) => (
                 <motion.div
                   key={path.strand}
@@ -285,12 +311,43 @@ const Careers = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.1 }}
                   whileHover={{ y: -5 }}
+                  className="relative"
+                  onMouseMove={(e) => handleCardMouseMove(e, path.strand)}
+                  onMouseEnter={() => setCardHoverStates(prev => ({
+                    ...prev,
+                    [path.strand]: {
+                      ...(prev[path.strand] || { mousePosition: { x: 0, y: 0 } }),
+                      isHovering: true
+                    }
+                  }))}
+                  onMouseLeave={() => setCardHoverStates(prev => ({
+                    ...prev,
+                    [path.strand]: {
+                      ...(prev[path.strand] || { mousePosition: { x: 0, y: 0 } }),
+                      isHovering: false
+                    }
+                  }))}
                 >
                   <Card 
-                    className="h-full cursor-pointer hover:shadow-xl transition-all duration-300 border-primary/10"
+                    className="h-full cursor-pointer hover:shadow-xl transition-all duration-300 border-primary/20 relative overflow-hidden"
                     onClick={() => handleStrandClick(path)}
                   >
-                    <CardHeader>
+                    {/* Gradient background that follows cursor */}
+                    {cardHoverStates[path.strand]?.isHovering && (
+                      <div 
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background: `radial-gradient(300px circle at ${cardHoverStates[path.strand]?.mousePosition.x}px ${cardHoverStates[path.strand]?.mousePosition.y}px, 
+                            hsl(var(--primary)/0.3), 
+                            hsl(var(--secondary)/0.2) 40%, 
+                            transparent 70%)`,
+                          transition: 'opacity 0.3s ease',
+                          zIndex: 0
+                        }}
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 opacity-0 hover:opacity-100 transition-opacity duration-300 z-10" />
+                    <CardHeader className="relative z-20">
                       <div className="flex items-center space-x-3">
                         <div className={`p-3 rounded-lg bg-muted/20 ${path.color}`}>
                           {path.icon}
@@ -301,7 +358,7 @@ const Careers = () => {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="relative z-20">
                       <p className="text-muted-foreground text-sm mb-4">{path.description}</p>
                       <Button variant="outline" className="w-full group">
                         Explore Careers

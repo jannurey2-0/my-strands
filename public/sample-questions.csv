@@ -1,0 +1,11 @@
+question,option1,option2,option3,option4,correct_answer,category,difficulty_level,type
+What is 2+2?,4,5,6,7,0,math,1,multiple_choice
+What is the capital of France?,London,Berlin,Paris,Madrid,2,language,1,multiple_choice
+Water boils at 100°C.,True,False,,,"0",science,1,true_false
+Which planet is known as the Red Planet?,Venus,Mars,Jupiter,Saturn,1,science,2,multiple_choice
+How many elements are in the periodic table?,118,120,119,117,0,science,3,multiple_choice
+What is the square root of 144?,10,11,12,13,2,math,2,multiple_choice
+The Earth is flat.,True,False,,,"1",science,1,true_false
+Which gas do plants absorb during photosynthesis?,Oxygen,Nitrogen,Carbon Dioxide,Hydrogen,2,science,2,multiple_choice
+What is the longest river in the world?,Amazon,Nile,Mississippi,Yangtze,1,geography,2,multiple_choice
+5x7 equals?,30,35,40,45,1,math,1,multiple_choice

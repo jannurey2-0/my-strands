@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Trash2, Edit2, BookOpen, Award, Zap } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, Trash2, Edit2, BookOpen, Award, Zap, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import Papa from 'papaparse';
 
 interface AptitudeQuestion {
   id: string;
@@ -29,6 +31,9 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
   const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<AptitudeQuestion | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     question: '',
     option1: '',
@@ -155,6 +160,108 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
         description: "Failed to delete question",
         variant: "destructive"
       });
+    } finally {
+      setQuestionToDelete(null);
+    }
+  };
+
+  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    
+    try {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          try {
+            const questionsToInsert = results.data
+              .filter((row: any) => row.question && row.question.trim() !== '')
+              .map((row: any) => {
+                // Build options array based on question type
+                let options: string[] = [];
+                if (row.type === 'true_false') {
+                  options = ['True', 'False'];
+                } else if (row.type === 'multiple_choice') {
+                  options = [row.option1, row.option2, row.option3, row.option4].filter(opt => opt);
+                }
+                
+                return {
+                  question: row.question,
+                  options: JSON.stringify(options),
+                  correct_answer: parseInt(row.correct_answer) || 0,
+                  category: row.category || 'math',
+                  difficulty_level: parseInt(row.difficulty_level) || 1,
+                  type: row.type || 'multiple_choice'
+                };
+              });
+
+            if (questionsToInsert.length === 0) {
+              toast({
+                title: "No Valid Questions",
+                description: "No valid questions found in the CSV file.",
+                variant: "destructive"
+              });
+              return;
+            }
+
+            // Insert questions in batches to avoid timeout issues
+            const batchSize = 50;
+            for (let i = 0; i < questionsToInsert.length; i += batchSize) {
+              const batch = questionsToInsert.slice(i, i + batchSize);
+              const { error } = await supabase
+                .from('aptitude_questions')
+                .insert(batch);
+
+              if (error) throw error;
+            }
+
+            toast({
+              title: "Success",
+              description: `Successfully imported ${questionsToInsert.length} questions!`
+            });
+
+            onRefresh();
+          } catch (error) {
+            console.error('Error importing questions:', error);
+            toast({
+              title: "Error",
+              description: "Failed to import questions. Please check the CSV format and try again.",
+              variant: "destructive"
+            });
+          } finally {
+            setIsImporting(false);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+          }
+        },
+        error: (error) => {
+          console.error('Error parsing CSV:', error);
+          toast({
+            title: "Error",
+            description: "Failed to parse CSV file. Please check the format and try again.",
+            variant: "destructive"
+          });
+          setIsImporting(false);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error importing CSV:', error);
+      toast({
+        title: "Error",
+        description: "Failed to import CSV file.",
+        variant: "destructive"
+      });
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -184,12 +291,68 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
           <h2 className="text-2xl font-bold text-foreground">Question Management</h2>
           <p className="text-muted-foreground">Create and manage assessment questions</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Add Question
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => fileInputRef.current?.click()} 
+            disabled={isImporting}
+            variant="secondary"
+            className="flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            {isImporting ? 'Importing...' : 'Import CSV'}
+          </Button>
+          <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add Question
+          </Button>
+        </div>
       </div>
 
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImportCSV}
+        accept=".csv"
+        className="hidden"
+      />
+
+      {/* CSV Import Instructions */}
+      <Card className="border-dashed border-muted">
+        <CardContent className="py-4">
+          <div className="text-sm text-muted-foreground">
+            <p className="mb-2">
+              <strong>Tip:</strong> Import multiple questions at once using a CSV file. 
+              <a href="/sample-questions.csv" className="text-primary hover:underline ml-1" target="_blank" rel="noopener noreferrer">
+                Download sample CSV
+              </a>
+            </p>
+            <p>
+              CSV format: question, option1, option2, option3, option4, correct_answer, category, difficulty_level, type
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!questionToDelete} onOpenChange={(open) => !open && setQuestionToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the question and remove it from the assessment.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => questionToDelete && handleDelete(questionToDelete)}>
+              Delete Question
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Add Question Form Dialog */}
       <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) resetForm(); }}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden" aria-describedby="question-dialog-description">
           <Card className="border-primary/20 shadow-lg max-h-[80vh]">
@@ -466,7 +629,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => handleDelete(question.id)}
+                    onClick={() => setQuestionToDelete(question.id)}
                     className="h-9 px-3"
                   >
                     <Trash2 className="w-4 h-4" />
