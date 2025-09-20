@@ -140,7 +140,7 @@ const Index = () => {
       <Header />
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 lg:py-28 flex-grow">
+      <section className="relative overflow-hidden pt-24 pb-20 lg:pt-28 lg:pb-28 flex-grow">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
