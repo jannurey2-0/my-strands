@@ -238,7 +238,7 @@ const Index = () => {
               
               {/* Floating Cards */}
               <motion.div 
-                className="absolute -top-4 -left-4 bg-white rounded-lg shadow-lg p-4 animate-float"
+                className="absolute -top-4 -left-4 bg-white rounded-lg shadow-lg p-4 animate-float md:-top-4 md:-left-4 lg:-top-4 lg:-left-4 hidden sm:block"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : 20 }}
                 transition={{ duration: 0.5, delay: 0.6 }}
@@ -253,7 +253,7 @@ const Index = () => {
               </motion.div>
               
               <motion.div 
-                className="absolute -bottom-4 -right-4 bg-white rounded-lg shadow-lg p-4 animate-float delay-500"
+                className="absolute -bottom-4 -right-4 bg-white rounded-lg shadow-lg p-4 animate-float delay-500 md:-bottom-4 md:-right-4 lg:-bottom-4 lg:-right-4 hidden sm:block"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : 20 }}
                 transition={{ duration: 0.5, delay: 0.7 }}
