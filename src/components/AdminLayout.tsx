@@ -10,14 +10,15 @@ import {
   Menu,
   X,
   User,
-  ChevronDown
+  ChevronDown,
+  Settings
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  activeSection: 'dashboard' | 'students' | 'schools' | 'questions';
-  setActiveSection: (section: 'dashboard' | 'students' | 'schools' | 'questions') => void;
+  activeSection: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings';
+  setActiveSection: (section: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings') => void;
 }
 
 export const AdminLayout = ({ children, activeSection, setActiveSection }: AdminLayoutProps) => {
@@ -46,6 +47,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
     { id: 'students', label: 'Students', icon: Users },
     { id: 'schools', label: 'Schools', icon: School },
     { id: 'questions', label: 'Questions', icon: BookOpen },
+    { id: 'settings', label: 'System Settings', icon: Settings },
   ];
 
   const handleSignOut = async () => {
@@ -118,7 +120,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
                 <li key={item.id}>
                   <button
                     onClick={() => {
-                      setActiveSection(item.id as 'dashboard' | 'students' | 'schools' | 'questions');
+                      setActiveSection(item.id as 'dashboard' | 'students' | 'schools' | 'questions' | 'settings');
                       setSidebarOpen(false);
                     }}
                     className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${

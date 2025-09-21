@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { MaintenancePage } from "@/components/MaintenancePage";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   Download, 
@@ -49,6 +50,26 @@ const Results = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [latestAssessment, setLatestAssessment] = useState<Tables<'assessment_responses'> | null>(null);
+  const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
+
+  // Check maintenance status on component mount
+  useEffect(() => {
+    const checkMaintenanceStatus = async () => {
+      try {
+        const status = await assessmentService.isPageUnderMaintenance('results');
+        setMaintenance({
+          isUnderMaintenance: status.isUnderMaintenance,
+          message: status.maintenanceMessage
+        });
+      } catch (err) {
+        console.error('Error checking maintenance status:', err);
+        // Default to not under maintenance if there's an error
+        setMaintenance({ isUnderMaintenance: false, message: 'Currently Under Development' });
+      }
+    };
+
+    checkMaintenanceStatus();
+  }, []);
 
   // Define strand information with detailed scoring criteria
   const strandInfo: Record<string, Omit<StrandResult, 'match'>> = {
@@ -280,6 +301,12 @@ const Results = () => {
 
   // Fetch assessment data
   useEffect(() => {
+    // Don't fetch assessment data if page is under maintenance
+    if (maintenance?.isUnderMaintenance) {
+      setLoading(false);
+      return;
+    }
+
     const fetchAssessmentData = async () => {
       if (!user || !profile) {
         setError("You must be logged in to view results");
@@ -312,7 +339,7 @@ const Results = () => {
     };
 
     fetchAssessmentData();
-  }, [user, profile]);
+  }, [user, profile, maintenance?.isUnderMaintenance]);
 
   // Get badge variant based on percentage
   const getMatchBadgeVariant = (percentage: number) => {
@@ -330,11 +357,22 @@ const Results = () => {
     return "Low Match";
   };
 
+  // Show maintenance page if under maintenance
+  if (maintenance?.isUnderMaintenance) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <MaintenancePage message={maintenance.message} />
+        <Footer />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-grow flex items-center justify-center">
+        <main className="flex-grow flex items-center justify-center pt-header">
           <motion.div 
             className="text-center"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -355,7 +393,7 @@ const Results = () => {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-grow flex items-center justify-center">
+        <main className="flex-grow flex items-center justify-center pt-header">
           <motion.div 
             className="text-center max-w-md"
             initial={{ opacity: 0, y: 20 }}
@@ -387,7 +425,7 @@ const Results = () => {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-grow flex items-center justify-center">
+        <main className="flex-grow flex items-center justify-center pt-header">
           <motion.div 
             className="text-center max-w-md"
             initial={{ opacity: 0, y: 20 }}
@@ -418,7 +456,7 @@ const Results = () => {
       <div className="min-h-screen flex flex-col">
         <Header />
         
-        <main className="flex-grow pt-16">
+        <main className="flex-grow pt-16 pt-header section-padding">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Results Header */}
             <motion.div 
@@ -468,7 +506,7 @@ const Results = () => {
                 <CardContent>
                   <p className="text-foreground mb-6">{topMatch.description}</p>
                   
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6">
                     <div>
                       <h4 className="font-semibold mb-3 flex items-center">
                         <BookOpen className="h-4 w-4 mr-2" />
@@ -522,7 +560,8 @@ const Results = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
             >
               <h2 className="text-2xl font-bold mb-6">Complete Results Breakdown</h2>
-              <div className="space-y-4">
+              {/* Keeping the same layout (3 cards in one line) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {strandResults.map((strand, index) => (
                   <motion.div
                     key={strand.name}
@@ -530,41 +569,37 @@ const Results = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.1 }}
                   >
-                    <Card className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-4">
-                            <div className="flex items-center justify-center w-12 h-12 bg-muted/50 rounded-lg">
-                              <div className={strand.color}>
-                                {strand.icon}
-                              </div>
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-semibold">{strand.name}</h3>
-                              <p className="text-sm text-muted-foreground">{strand.fullName}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-primary">{strand.match}%</div>
-                            <Badge variant={getMatchBadgeVariant(strand.match)} className="mt-1">
-                              {getMatchBadgeText(strand.match)}
-                            </Badge>
+                    <Card className="hover:shadow-md transition-shadow h-full">
+                      <CardContent className="p-6 flex flex-col items-center text-center">
+                        <div className="flex items-center justify-center w-12 h-12 bg-muted/50 rounded-lg mb-3">
+                          <div className={strand.color}>
+                            {strand.icon}
                           </div>
                         </div>
+                        <h3 className="text-lg font-semibold mb-1">{strand.name}</h3>
+                        <p className="text-sm text-muted-foreground mb-3">{strand.fullName}</p>
                         
-                        <Progress value={strand.match} className="mb-4" />
+                        {/* Changed back to linear progress bar */}
+                        <div className="w-full mb-3">
+                          <Progress value={strand.match} className="mb-1" />
+                          <div className="text-right text-sm font-medium text-primary">{Math.round(strand.match)}%</div>
+                        </div>
                         
-                        <p className="text-sm text-muted-foreground mb-4">{strand.description}</p>
+                        <Badge variant={getMatchBadgeVariant(strand.match)} className="mb-3">
+                          {getMatchBadgeText(strand.match)}
+                        </Badge>
                         
-                        <div className="flex flex-wrap gap-2">
-                          {strand.careers.slice(0, 3).map((career, careerIndex) => (
+                        <p className="text-sm text-muted-foreground mb-3">{strand.description}</p>
+                        
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          {strand.careers.slice(0, 2).map((career, careerIndex) => (
                             <Badge key={careerIndex} variant="outline" className="text-xs">
                               {career}
                             </Badge>
                           ))}
-                          {strand.careers.length > 3 && (
+                          {strand.careers.length > 2 && (
                             <Badge variant="outline" className="text-xs">
-                              +{strand.careers.length - 3} more
+                              +{strand.careers.length - 2} more
                             </Badge>
                           )}
                         </div>
@@ -575,25 +610,25 @@ const Results = () => {
               </div>
             </motion.div>
 
-            {/* Actions */}
+            {/* Actions - keeping the shortened buttons layout */}
             <motion.div
-              className="grid md:grid-cols-3 gap-4 mb-8 mt-8"
+              className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 mt-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
-              <Button variant="hero" className="h-12 group">
+              <Button variant="hero" className="h-10 group">
                 <Download className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                Download PDF Report
+                Download PDF
               </Button>
-              <Button variant="outline" className="h-12 group">
+              <Button variant="outline" className="h-10 group">
                 <Share className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                Share Results
+                Share
               </Button>
               <Link to="/assessment">
-                <Button variant="outline" className="w-full h-12 group">
+                <Button variant="outline" className="w-full h-10 group">
                   <RotateCcw className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" />
-                  Retake Assessment
+                  Retake
                 </Button>
               </Link>
             </motion.div>
@@ -615,7 +650,7 @@ const Results = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-4">
                       <div className="flex items-start space-x-3">
                         <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">1</div>

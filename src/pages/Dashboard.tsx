@@ -409,7 +409,7 @@ const Dashboard = () => {
       <div className="min-h-screen flex flex-col">
         <Header />
         
-        <main className="flex-grow pt-16">
+        <main className="flex-grow pt-16 pt-header section-padding">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <motion.div 
               className="mb-8"
@@ -425,15 +425,15 @@ const Dashboard = () => {
               </p>
             </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {/* Progress Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Progress Overview - Takes half the width and shorter height */}
               <motion.div
-                className="col-span-1 md:col-span-2 lg:col-span-2"
+                className="col-span-1 md:col-span-1"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
+                transition={{ duration: 0.5 }}
               >
-                <Card className="col-span-1 md:col-span-2 lg:col-span-2 h-full">
+                <Card className="h-full">
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <TrendingUp className="h-5 w-5 mr-2 text-primary" />
@@ -453,140 +453,125 @@ const Dashboard = () => {
                       <div className="text-sm text-muted-foreground">
                         {completedAssessments} of {totalAssessments} assessments completed
                       </div>
-                      
-                      {/* Progress Chart */}
-                      <div className="mt-6 h-48">
-                        <h4 className="text-sm font-medium mb-2">Profile Completion</h4>
-                        <ChartErrorBoundary chartTitle="Profile Completion">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={progressData}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis dataKey="name" />
-                              <YAxis domain={[0, 100]} />
-                              <Tooltip />
-                              <Bar dataKey="progress" fill="var(--primary)" radius={[4, 4, 0, 0]}>
-                                {progressData.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </ChartErrorBoundary>
-                      </div>
                     </div>
                   </CardContent>
                 </Card>
               </motion.div>
 
-              {/* Quick Actions */}
-              <motion.div
-                className="col-span-1 md:col-span-2 lg:col-span-1"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-              >
-                <Card className="col-span-1 md:col-span-2 lg:col-span-1 h-full">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Target className="h-5 w-5 mr-2 text-primary" />
-                      Quick Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-3">
-                    <Link to="/assessment">
-                      <Button variant="hero" className="w-full group">
-                        <ClipboardList className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" />
-                        {hasAssessmentResults ? "Retake Assessment" : "Start Assessment"}
-                      </Button>
-                    </Link>
-                    <Link to="/results">
-                      <Button 
-                        variant="outline" 
-                        className="w-full group"
-                        disabled={!hasAssessmentResults}
-                      >
-                        <Eye className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                        View Results
-                      </Button>
-                    </Link>
-                    <Link to="/schools">
-                      <Button 
-                        variant="outline" 
-                        className="w-full group"
-                        disabled={!hasAssessmentResults}
-                      >
-                        <School className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                        View Schools
-                      </Button>
-                    </Link>
-                    <Button variant="outline" className="w-full group" disabled={!hasAssessmentResults}>
-                      <Download className="h-4 w-4 mr-2 group-hover:bounce transition-transform" />
-                      Download Report
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              {/* Quick Actions and Your Stats - Share the other half and align horizontally */}
+              <div className="col-span-1 md:col-span-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                  {/* Quick Actions */}
+                  <motion.div
+                    className="col-span-1"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                  >
+                    <Card className="h-full">
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <Target className="h-5 w-5 mr-2 text-primary" />
+                          Quick Actions
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex flex-col gap-3">
+                        <Link to="/assessment">
+                          <Button variant="hero" className="w-full group">
+                            <ClipboardList className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" />
+                            {hasAssessmentResults ? "Retake Assessment" : "Start Assessment"}
+                          </Button>
+                        </Link>
+                        <Link to="/results">
+                          <Button 
+                            variant="outline" 
+                            className="w-full group"
+                            disabled={!hasAssessmentResults}
+                          >
+                            <Eye className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+                            View Results
+                          </Button>
+                        </Link>
+                        <Link to="/schools">
+                          <Button 
+                            variant="outline" 
+                            className="w-full group"
+                            disabled={!hasAssessmentResults}
+                          >
+                            <School className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+                            View Schools
+                          </Button>
+                        </Link>
+                        <Button variant="outline" className="w-full group" disabled={!hasAssessmentResults}>
+                          <Download className="h-4 w-4 mr-2 group-hover:bounce transition-transform" />
+                          Download Report
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
 
-              {/* Achievement Stats */}
-              <motion.div
-                className="col-span-1 md:col-span-2 lg:col-span-1"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-              >
-                <Card className="col-span-1 md:col-span-2 lg:col-span-1 h-full">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Award className="h-5 w-5 mr-2 text-primary" />
-                      Your Stats
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Assessments Taken</span>
-                        <Badge variant="secondary" className="flex items-center">
-                          <Zap className="h-3 w-3 mr-1" />
-                          {completedAssessments}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Top Match</span>
-                        <Badge variant={topMatchPercentage > 0 ? getMatchBadgeVariant(topMatchPercentage) : "secondary"}>
-                          {topMatchPercentage > 0 ? `${topMatchStrand} - ${topMatchPercentage}%` : "No data"}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Profile Strength</span>
-                        <Badge variant={completedAssessments > 0 ? "default" : "secondary"} className="flex items-center">
-                          {completedAssessments > 0 ? (
-                            <>
-                              <Star className="h-3 w-3 mr-1" />
-                              In Progress
-                            </>
-                          ) : (
-                            <>
-                              <TrendingDown className="h-3 w-3 mr-1" />
-                              Not Started
-                            </>
-                          )}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Last Activity</span>
-                        <Badge variant="outline" className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />
-                          2 days ago
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                  {/* Achievement Stats */}
+                  <motion.div
+                    className="col-span-1"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                  >
+                    <Card className="h-full">
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <Award className="h-5 w-5 mr-2 text-primary" />
+                          Your Stats
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm">Assessments Taken</span>
+                            <Badge variant="secondary" className="flex items-center">
+                              <Zap className="h-3 w-3 mr-1" />
+                              {completedAssessments}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm">Top Match</span>
+                            <Badge variant={topMatchPercentage > 0 ? getMatchBadgeVariant(topMatchPercentage) : "secondary"}>
+                              {topMatchPercentage > 0 ? `${topMatchStrand} - ${topMatchPercentage}%` : "No data"}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm">Profile Strength</span>
+                            <Badge variant={completedAssessments > 0 ? "default" : "secondary"} className="flex items-center">
+                              {completedAssessments > 0 ? (
+                                <>
+                                  <Star className="h-3 w-3 mr-1" />
+                                  In Progress
+                                </>
+                              ) : (
+                                <>
+                                  <TrendingDown className="h-3 w-3 mr-1" />
+                                  Not Started
+                                </>
+                              )}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm">Last Activity</span>
+                            <Badge variant="outline" className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              2 days ago
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </div>
+              </div>
             </div>
 
             {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {/* Strand Match Distribution */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}

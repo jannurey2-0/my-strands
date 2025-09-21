@@ -167,6 +167,7 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           id: string
+          map_link: string | null
           name: string
           strands: Json
           updated_at: string
@@ -177,6 +178,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: string
+          map_link?: string | null
           name: string
           strands?: Json
           updated_at?: string
@@ -187,11 +189,47 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: string
+          map_link?: string | null
           name?: string
           strands?: Json
           updated_at?: string
         }
         Relationships: []
+      }
+      system_settings: {
+        Row: {
+          id: string
+          page_name: string
+          is_under_maintenance: boolean
+          maintenance_message: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          page_name: string
+          is_under_maintenance?: boolean
+          maintenance_message?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          page_name?: string
+          is_under_maintenance?: boolean
+          maintenance_message?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          }
+        ]
       }
     }
     Views: {

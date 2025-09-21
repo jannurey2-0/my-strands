@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { MaintenancePage } from "@/components/MaintenancePage";
 import { useState, useEffect, useMemo } from "react";
 import { 
   MapPin,
@@ -33,6 +34,7 @@ interface SchoolData {
   contact_email: string | null;
   contact_phone: string | null;
   strands: string[]; // JSON array of strands
+  map_link: string | null; // Google Maps link
   created_at: string;
   updated_at: string;
 }
@@ -43,11 +45,31 @@ const Schools = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStrands, setSelectedStrands] = useState<string[]>([]);
   
+  // Check maintenance status on component mount
+  useEffect(() => {
+    const checkMaintenanceStatus = async () => {
+      try {
+        const status = await assessmentService.isPageUnderMaintenance('schools');
+        setMaintenance({
+          isUnderMaintenance: status.isUnderMaintenance,
+          message: status.maintenanceMessage
+        });
+      } catch (err) {
+        console.error('Error checking maintenance status:', err);
+        // Default to not under maintenance if there's an error
+        setMaintenance({ isUnderMaintenance: false, message: 'Currently Under Development' });
+      }
+    };
+
+    checkMaintenanceStatus();
+  }, []);
+
   // Get all unique strands for filter options
   const allStrands = useMemo(() => {
     const strandsSet = new Set<string>();
@@ -61,6 +83,12 @@ const Schools = () => {
 
   // Fetch schools data
   useEffect(() => {
+    // Don't fetch schools if page is under maintenance
+    if (maintenance?.isUnderMaintenance) {
+      setLoading(false);
+      return;
+    }
+
     const fetchSchools = async () => {
       try {
         setLoading(true);
@@ -84,7 +112,7 @@ const Schools = () => {
     };
 
     fetchSchools();
-  }, []);
+  }, [maintenance?.isUnderMaintenance]);
 
   const handleSchoolClick = (school: SchoolData) => {
     setSelectedSchool(school);
@@ -139,12 +167,23 @@ const Schools = () => {
   // Check if any filters are active
   const hasActiveFilters = searchTerm !== "" || selectedStrands.length > 0;
 
+  // Show maintenance page if under maintenance
+  if (maintenance?.isUnderMaintenance) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <MaintenancePage message={maintenance.message} />
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col">
         <Header />
         
-        <main className="flex-grow pt-16">
+        <main className="flex-grow pt-16 pt-header section-padding">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <motion.div 
               className="text-center mb-8"
@@ -279,7 +318,7 @@ const Schools = () => {
                       </Button>
                     </div>
                   ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                       {filteredSchools.map((school, index) => (
                         <motion.div
                           key={school.id}
@@ -347,7 +386,7 @@ const Schools = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.3 }}
                 >
-                  <Card className="bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20 max-w-3xl mx-auto">
+                  <Card className="bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
                     <CardContent className="py-8">
                       <h2 className="text-2xl font-bold mb-4">Not Sure Which School is Right for You?</h2>
                       <p className="text-muted-foreground mb-6">
@@ -440,22 +479,37 @@ const Schools = () => {
                     </div>
                   </div>
                   
-                  {/* Location Map Placeholder */}
+                  {/* Location Address */}
                   <div className="bg-card rounded-xl p-5 border shadow-sm">
                     <h3 className="text-lg font-semibold mb-4 flex items-center text-primary">
                       <MapPin className="h-5 w-5 mr-2" />
                       Location
                     </h3>
-                    <div className="bg-muted/20 rounded-xl h-64 flex items-center justify-center border-2 border-dashed border-muted">
-                      <div className="text-center p-6">
-                        <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground mb-2 font-medium">
-                          Interactive Map
-                        </p>
-                        <p className="text-sm text-muted-foreground max-w-md">
-                          Google Maps integration would appear here in a production environment to show the school's location and provide directions
-                        </p>
-                      </div>
+                    <div className="bg-muted/20 rounded-xl p-6 flex items-center justify-center border-2 border-dashed border-muted">
+                      {selectedSchool.address ? (
+                        <div className="text-center">
+                          <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground mb-2 font-medium">
+                            School Address
+                          </p>
+                          <p className="text-lg font-medium max-w-md">
+                            {selectedSchool.address}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Contact the school for precise location details
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground mb-2 font-medium">
+                            Location Information Not Available
+                          </p>
+                          <p className="text-sm text-muted-foreground max-w-md">
+                            No address information provided for this school
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   

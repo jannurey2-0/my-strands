@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { MaintenancePage } from "@/components/MaintenancePage";
 import { Link } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { 
@@ -27,6 +28,7 @@ import {
   School
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { assessmentService } from "@/integrations/supabase/assessmentService";
 import strandBackground from "@/assets/strand-background.jpg";
 
 interface CareerPath {
@@ -56,7 +58,30 @@ const Careers = () => {
   const [selectedStrand, setSelectedStrand] = useState<CareerPath | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardHoverStates, setCardHoverStates] = useState<CardHoverState>({});
+  const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
+  const [loading, setLoading] = useState(true);
   
+  // Check maintenance status on component mount
+  useEffect(() => {
+    const checkMaintenanceStatus = async () => {
+      try {
+        const status = await assessmentService.isPageUnderMaintenance('careers');
+        setMaintenance({
+          isUnderMaintenance: status.isUnderMaintenance,
+          message: status.maintenanceMessage
+        });
+      } catch (err) {
+        console.error('Error checking maintenance status:', err);
+        // Default to not under maintenance if there's an error
+        setMaintenance({ isUnderMaintenance: false, message: 'Currently Under Development' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkMaintenanceStatus();
+  }, []);
+
   const careerPaths: CareerPath[] = [
     {
       strand: "STEM",
@@ -275,11 +300,22 @@ const Careers = () => {
     }
   };
 
+  // Show maintenance page if under maintenance
+  if (maintenance?.isUnderMaintenance) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <MaintenancePage message={maintenance.message} />
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-grow pt-16">
+      <main className="flex-grow pt-16 section-padding">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <motion.div 
             className="text-center mb-12"
@@ -302,7 +338,7 @@ const Careers = () => {
             transition={{ duration: 0.5, delay: 0.1 }}
           >
             <div 
-              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 card-grid"
             >
               {careerPaths.map((path, index) => (
                 <motion.div
@@ -441,7 +477,7 @@ const Careers = () => {
                     <GraduationCap className="h-5 w-5 mr-2 text-primary" />
                     College Programs
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {selectedStrand.collegePrograms.map((program, index) => (
                       <div key={index} className="flex items-center space-x-2 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="w-2 h-2 bg-primary rounded-full" />

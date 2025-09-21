@@ -65,7 +65,7 @@ export default function StudentAuth() {
   // Show loading state while checking auth status
   if (loading || !authChecked) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4 pt-header">
         <div className="w-full max-w-md space-y-6">
           <div className="text-center">
             <div className="flex justify-center mb-4">
@@ -86,7 +86,7 @@ export default function StudentAuth() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4 pt-header section-padding">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">

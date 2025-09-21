@@ -140,7 +140,7 @@ const Index = () => {
       <Header />
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 lg:py-28 flex-grow">
+      <section className="relative overflow-hidden py-12 lg:py-20 flex-grow pt-header hero-section" style={{ paddingTop: '6rem' }}>
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -182,7 +182,7 @@ const Index = () => {
               </div>
               
               <motion.div 
-                className="flex flex-col sm:flex-row gap-4"
+                className="flex flex-col sm:flex-row gap-3"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : 20 }}
                 transition={{ duration: 0.5, delay: 0.4 }}
@@ -201,7 +201,7 @@ const Index = () => {
               </motion.div>
 
               <motion.div 
-                className="flex items-center space-x-8 text-sm text-muted-foreground"
+                className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: isVisible ? 1 : 0 }}
                 transition={{ duration: 0.5, delay: 0.5 }}
@@ -289,7 +289,7 @@ const Index = () => {
             </p>
           </motion.div>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
@@ -333,7 +333,7 @@ const Index = () => {
             </p>
           </motion.div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {strands.map((strand, index) => (
               <motion.div
                 key={index}
@@ -394,7 +394,7 @@ const Index = () => {
             </p>
           </motion.div>
           
-          <div className="grid lg:grid-cols-2 gap-12 items-center mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-16">
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -452,7 +452,7 @@ const Index = () => {
             transition={{ duration: 0.5 }}
           >
             <h3 className="text-2xl font-bold mb-8">Our Team</h3>
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {teamMembers.map((member, index) => (
                 <motion.div
                   key={index}
@@ -494,7 +494,7 @@ const Index = () => {
             </p>
           </motion.div>
           
-          <div className="grid lg:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}

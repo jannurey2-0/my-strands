@@ -193,5 +193,75 @@ export const assessmentService = {
       console.error('Error in getAptitudeQuestions:', error);
       throw error;
     }
+  },
+
+  // System settings functions
+  getSystemSettings: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching system settings:', error);
+        throw new Error(`Failed to fetch system settings: ${error.message}`);
+      }
+
+      return data as Tables<'system_settings'>[];
+    } catch (error) {
+      console.error('Error in getSystemSettings:', error);
+      throw error;
+    }
+  },
+
+  updateSystemSetting: async (pageName: string, isUnderMaintenance: boolean, maintenanceMessage?: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .update({
+          is_under_maintenance: isUnderMaintenance,
+          maintenance_message: maintenanceMessage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('page_name', pageName)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating system setting:', error);
+        throw new Error(`Failed to update system setting: ${error.message}`);
+      }
+
+      return data as Tables<'system_settings'>;
+    } catch (error) {
+      console.error('Error in updateSystemSetting:', error);
+      throw error;
+    }
+  },
+
+  // Check if a specific page is under maintenance
+  isPageUnderMaintenance: async (pageName: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('is_under_maintenance, maintenance_message')
+        .eq('page_name', pageName)
+        .single();
+
+      if (error) {
+        console.error('Error checking page maintenance status:', error);
+        // If no setting found, assume page is not under maintenance
+        return { isUnderMaintenance: false, maintenanceMessage: 'Currently Under Development' };
+      }
+
+      return {
+        isUnderMaintenance: data.is_under_maintenance,
+        maintenanceMessage: data.maintenance_message || 'Currently Under Development'
+      };
+    } catch (error) {
+      console.error('Error in isPageUnderMaintenance:', error);
+      // If error occurs, assume page is not under maintenance
+      return { isUnderMaintenance: false, maintenanceMessage: 'Currently Under Development' };
+    }
   }
 };

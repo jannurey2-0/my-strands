@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import TestAssessment from "./pages/TestAssessment";
 import DatabaseTest from "./pages/DatabaseTest";
 import AuthDebug from "./pages/AuthDebug";
+import { ScrollToTopOnNavigate } from "./components/ScrollToTopOnNavigate";
 
 // Debug component to log current route
 const RouteDebugger = () => {
@@ -34,6 +35,7 @@ const queryClient = new QueryClient();
 const AppContent = () => (
   <AuthProvider>
     <RouteDebugger />
+    <ScrollToTopOnNavigate />
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -152,7 +154,9 @@ const AppContent = () => (
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
-      <AppContent />
+      <div className="pt-header">
+        <AppContent />
+      </div>
     </BrowserRouter>
   </QueryClientProvider>
 );

@@ -1,12 +1,13 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, School, BookOpen, Plus, TrendingUp, FileText, Building, HelpCircle } from 'lucide-react';
+import { Users, School, BookOpen, Plus, TrendingUp, FileText, Building, HelpCircle, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import QuestionManagement from '@/components/QuestionManagement';
 import { AdminLayout } from '@/components/AdminLayout';
+import SystemSettings from './SystemSettings';
 
 interface Stats {
   totalStudents: number;
@@ -36,7 +37,7 @@ export default function AdminDashboard() {
   const [questions, setQuestions] = useState<AptitudeQuestion[]>([]);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<'dashboard' | 'students' | 'schools' | 'questions'>('dashboard');
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'students' | 'schools' | 'questions' | 'settings'>('dashboard');
 
   // Fetch dashboard stats
   const fetchStats = async () => {
@@ -212,7 +213,7 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card className="hover:shadow-lg transition-all duration-300">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
@@ -269,6 +270,25 @@ export default function AdminDashboard() {
                   </Button>
                 </CardContent>
               </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                      <Settings className="w-5 h-5" />
+                    </div>
+                    System Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Configure system-wide settings and maintenance modes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="ghost" className="w-full" onClick={() => setActiveSection('settings')}>
+                    Configure Settings
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </>
         );
@@ -309,6 +329,9 @@ export default function AdminDashboard() {
             </Card>
           </div>
         );
+      
+      case 'settings':
+        return <SystemSettings />;
       
       default:
         return null;

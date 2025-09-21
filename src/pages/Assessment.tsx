@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { MaintenancePage } from "@/components/MaintenancePage";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   ChevronLeft, 
@@ -101,6 +102,7 @@ const Assessment = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aptitudeQuestions, setAptitudeQuestions] = useState<AptitudeQuestionFromDB[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -127,8 +129,32 @@ const Assessment = () => {
     aptitudeAnswers: {} as Record<string, number | string>
   });
 
+  // Check maintenance status on component mount
+  useEffect(() => {
+    const checkMaintenanceStatus = async () => {
+      try {
+        const status = await assessmentService.isPageUnderMaintenance('assessment');
+        setMaintenance({
+          isUnderMaintenance: status.isUnderMaintenance,
+          message: status.maintenanceMessage
+        });
+      } catch (err) {
+        console.error('Error checking maintenance status:', err);
+        // Default to not under maintenance if there's an error
+        setMaintenance({ isUnderMaintenance: false, message: 'Currently Under Development' });
+      }
+    };
+
+    checkMaintenanceStatus();
+  }, []);
+
   // Load aptitude questions when user reaches the aptitude test step
   useEffect(() => {
+    // Don't load questions if page is under maintenance
+    if (maintenance?.isUnderMaintenance) {
+      return;
+    }
+
     const fetchAptitudeQuestions = async () => {
       if (currentStep === 4 && aptitudeQuestions.length === 0 && !loadingQuestions) {
         setLoadingQuestions(true);
@@ -149,7 +175,7 @@ const Assessment = () => {
     };
 
     fetchAptitudeQuestions();
-  }, [currentStep, aptitudeQuestions.length, loadingQuestions, toast]);
+  }, [currentStep, aptitudeQuestions.length, loadingQuestions, toast, maintenance?.isUnderMaintenance]);
 
   // Save form data to localStorage whenever it changes
   useEffect(() => {
@@ -159,6 +185,11 @@ const Assessment = () => {
 
   // Load saved form data from localStorage on component mount
   useEffect(() => {
+    // Don't load saved data if page is under maintenance
+    if (maintenance?.isUnderMaintenance) {
+      return;
+    }
+
     const savedFormData = localStorage.getItem('assessmentFormData');
     const savedCurrentStep = localStorage.getItem('assessmentCurrentStep');
     
@@ -196,7 +227,7 @@ const Assessment = () => {
         setCurrentStep(step);
       }
     }
-  }, []);
+  }, [maintenance?.isUnderMaintenance]);
 
   // Clear saved data after successful submission
   const clearSavedData = () => {
@@ -431,6 +462,17 @@ const Assessment = () => {
         return false;
     }
   };
+
+  // Show maintenance page if under maintenance
+  if (maintenance?.isUnderMaintenance) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <MaintenancePage message={maintenance.message} />
+        <Footer />
+      </div>
+    );
+  }
 
   // Render current step content
   const renderStepContent = () => {
@@ -1142,7 +1184,7 @@ const Assessment = () => {
       <div className="min-h-screen flex flex-col">
         <Header />
         
-        <main className="flex-grow pt-16">
+        <main className="flex-grow pt-16 pt-header section-padding">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <motion.div 
               className="text-center mb-8"

@@ -40,3 +40,50 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Fix for mobile header overlap */
+@media (max-width: 768px) {
+  #root {
+    padding: 0.5rem;
+  }
+  
+  /* Add padding to prevent content overlap with fixed header */
+  .pt-header {
+    padding-top: 6rem;
+  }
+  
+  /* Adjustments for smaller screens */
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  /* Additional mobile-specific adjustments */
+  .hero-section {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+  
+  .section-padding {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+  
+  .card-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .mobile-full-width {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+/* Desktop styles */
+@media (min-width: 769px) {
+  .pt-header {
+    padding-top: 6rem;
+  }
+}
