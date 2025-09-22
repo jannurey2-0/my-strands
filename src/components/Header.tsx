@@ -5,6 +5,14 @@ import { User, Menu, X, GraduationCap } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Header = () => {
   const { user, profile, signOut, session, loading } = useAuth();
@@ -195,21 +203,24 @@ export const Header = () => {
                 >
                   Welcome, {profile?.full_name || user.email}
                 </motion.span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleSignOut}
-                  className="group hidden md:inline-flex"
-                >
-                  Sign Out
-                  <motion.div
-                    className="ml-2"
-                    whileHover={{ x: 5 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <User className="h-4 w-4" />
-                  </motion.div>
-                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="hidden md:inline-flex">
+                      <User className="h-4 w-4 mr-2" />
+                      Account
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile">Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>Sign Out</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             ) : (
               <>
@@ -333,6 +344,9 @@ export const Header = () => {
                       <p className="text-sm text-muted-foreground mb-2">
                         Welcome, {profile?.full_name || user.email}
                       </p>
+                      <Button variant="ghost" className="w-full justify-start" asChild onClick={closeMobileMenu}>
+                        <Link to="/profile">Profile</Link>
+                      </Button>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => { handleSignOut(); closeMobileMenu(); }}>
                         Sign Out
                       </Button>

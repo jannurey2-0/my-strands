@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import TestAssessment from "./pages/TestAssessment";
 import DatabaseTest from "./pages/DatabaseTest";
 import AuthDebug from "./pages/AuthDebug";
+import Profile from "./pages/Profile";
 import { ScrollToTopOnNavigate } from "./components/ScrollToTopOnNavigate";
 
 // Debug component to log current route
@@ -34,7 +35,7 @@ const queryClient = new QueryClient();
 // Wrapper component to provide navigation context to AuthProvider
 const AppContent = () => (
   <AuthProvider>
-    <RouteDebugger />
+    {import.meta.env.DEV && <RouteDebugger />}
     <ScrollToTopOnNavigate />
     <TooltipProvider>
       <Toaster />
@@ -121,6 +122,16 @@ const AppContent = () => (
             <ErrorBoundary>
               <ProtectedRoute requiredRole="student">
                 <DatabaseTest />
+              </ProtectedRoute>
+            </ErrorBoundary>
+          } 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="student">
+                <Profile />
               </ProtectedRoute>
             </ErrorBoundary>
           } 

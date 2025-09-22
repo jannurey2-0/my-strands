@@ -51,6 +51,7 @@ const Results = () => {
   const [error, setError] = useState<string | null>(null);
   const [latestAssessment, setLatestAssessment] = useState<Tables<'assessment_responses'> | null>(null);
   const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
+  const [showAllStrands, setShowAllStrands] = useState(false);
 
   // Check maintenance status on component mount
   useEffect(() => {
@@ -99,6 +100,33 @@ const Results = () => {
       color: "text-purple-600", 
       careers: ["Teacher", "Psychologist", "Lawyer", "Social Worker", "Journalist"],
       subjects: ["Philosophy", "Psychology", "Sociology", "Political Science", "Literature"]
+    },
+    GAS: {
+      name: "GAS",
+      fullName: "General Academic Strand",
+      description: "A flexible, generalist track suitable for students with broad interests across disciplines, providing foundational preparation across academic areas.",
+      icon: <BookOpen className="h-6 w-6" />,
+      color: "text-sky-600",
+      careers: ["Generalist", "Administrative Assistant", "Civil Service Professional", "Project Coordinator", "Educator"],
+      subjects: ["General Mathematics", "Earth and Life Science", "Understanding Culture, Society, and Politics", "Oral Communication", "21st Century Literature"]
+    },
+    TVL: {
+      name: "TVL",
+      fullName: "Technical-Vocational-Livelihood",
+      description: "Best for hands-on, practical learners who enjoy building, fixing, and creating with technology and tools.",
+      icon: <Zap className="h-6 w-6" />,
+      color: "text-amber-600",
+      careers: ["Technician", "Mechanic", "Electrician", "Cook/Culinary Professional", "Multimedia Technician"],
+      subjects: ["Technology and Livelihood Education", "Technical Drafting", "Electronics", "Cookery", "Animation/Multimedia"]
+    },
+    Arts: {
+      name: "Arts",
+      fullName: "Arts and Design",
+      description: "Ideal for creative students passionate about visual, performing, and applied arts, including design and media.",
+      icon: <Palette className="h-6 w-6" />,
+      color: "text-rose-600",
+      careers: ["Graphic Designer", "Animator", "Illustrator", "Performer", "Fashion Designer"],
+      subjects: ["Media Arts", "Visual Arts", "Performing Arts", "Design Principles", "Creative Writing"]
     }
   };
 
@@ -107,7 +135,10 @@ const Results = () => {
     const scores: Record<string, number> = {
       STEM: 0,
       ABM: 0,
-      HUMSS: 0
+      HUMSS: 0,
+      GAS: 0,
+      TVL: 0,
+      Arts: 0
     };
 
     // Extract assessment data with proper typing
@@ -161,8 +192,27 @@ const Results = () => {
         { interest: "Humanities and Social Sciences", weight: 12 },
         { interest: "Arts and Design", weight: 10 },
         { interest: "Communication", weight: 8 }
+      ],
+      GAS: [
+        // Generalist: small weights across many common interests
+        { interest: "Science and Technology", weight: 5 },
+        { interest: "Business and Finance", weight: 5 },
+        { interest: "Humanities and Social Sciences", weight: 5 },
+        { interest: "Communication", weight: 4 },
+        { interest: "Arts and Design", weight: 4 },
+        { interest: "Entrepreneurship", weight: 4 }
+      ],
+      TVL: [
+        { interest: "Technical Vocational Work", weight: 12 },
+        { interest: "Science and Technology", weight: 8 },
+        { interest: "Engineering", weight: 6 }
+      ],
+      Arts: [
+        { interest: "Arts and Design", weight: 12 },
+        { interest: "Communication", weight: 8 },
+        { interest: "Humanities and Social Sciences", weight: 6 }
       ]
-    };
+    } as Record<string, { interest: string; weight: number }[]>;
     
     Object.entries(interestWeights).forEach(([strand, interests]) => {
       interests.forEach(({ interest, weight }) => {
@@ -195,8 +245,34 @@ const Results = () => {
         { hobby: "Dancing", weight: 5 },
         { hobby: "Traveling", weight: 6 },
         { hobby: "Volunteering", weight: 7 }
+      ],
+      GAS: [
+        // Generalist: small weights across many hobbies
+        { hobby: "Reading", weight: 3 },
+        { hobby: "Writing", weight: 3 },
+        { hobby: "Music", weight: 3 },
+        { hobby: "Photography", weight: 3 },
+        { hobby: "Board Games", weight: 3 },
+        { hobby: "Traveling", weight: 3 }
+      ],
+      TVL: [
+        { hobby: "Building/Construction", weight: 8 },
+        { hobby: "DIY/Handicrafts", weight: 7 },
+        { hobby: "Mechanics", weight: 7 },
+        { hobby: "Electronics", weight: 6 },
+        { hobby: "Cooking/Baking", weight: 6 },
+        { hobby: "Woodworking", weight: 6 }
+      ],
+      Arts: [
+        { hobby: "Drawing", weight: 9 },
+        { hobby: "Painting", weight: 9 },
+        { hobby: "Music", weight: 7 },
+        { hobby: "Dancing", weight: 7 },
+        { hobby: "Photography", weight: 6 },
+        { hobby: "Theater/Acting", weight: 7 },
+        { hobby: "Design", weight: 8 }
       ]
-    };
+    } as Record<string, { hobby: string; weight: number }[]>;
     
     Object.entries(hobbyWeights).forEach(([strand, hobbiesList]) => {
       hobbiesList.forEach(({ hobby, weight }) => {
@@ -210,8 +286,11 @@ const Results = () => {
     const dislikePenalties = {
       STEM: ["English", "Araling Panlipunan", "Literature"],
       ABM: ["Science", "Chemistry", "Physics"],
-      HUMSS: ["Mathematics", "Business Math", "Computer Science"]
-    };
+      HUMSS: ["Mathematics", "Business Math", "Computer Science"],
+      GAS: ["Mathematics", "English"],
+      TVL: ["Science", "Physics", "Computer Science", "Technology and Livelihood Education"],
+      Arts: ["Arts", "Literature", "Communication", "English"]
+    } as Record<string, string[]>;
     
     Object.entries(dislikePenalties).forEach(([strand, dislikedSubjects]) => {
       if (dislikedSubjects.includes(academicProfile.leastFavoriteSubject)) {
@@ -224,6 +303,9 @@ const Results = () => {
       scores.STEM += 2;
       scores.ABM += 2;
       scores.HUMSS += 2;
+      scores.GAS += 2;
+      scores.TVL += 2;
+      scores.Arts += 2;
     }
 
     // 6. Bonus for diverse hobbies (5% weight)
@@ -231,6 +313,9 @@ const Results = () => {
       scores.STEM += 3;
       scores.ABM += 3;
       scores.HUMSS += 3;
+      scores.GAS += 3;
+      scores.TVL += 3;
+      scores.Arts += 3;
     }
 
     // 7. Age-based adjustments (5% weight)
@@ -252,9 +337,12 @@ const Results = () => {
     // If total is zero, assign equal percentages
     if (totalScore === 0) {
       return {
-        STEM: 33.33,
-        ABM: 33.33,
-        HUMSS: 33.33
+        STEM: 20,
+        ABM: 20,
+        HUMSS: 20,
+        GAS: 20,
+        TVL: 20,
+        Arts: 20
       };
     }
 
@@ -562,7 +650,7 @@ const Results = () => {
               <h2 className="text-2xl font-bold mb-6">Complete Results Breakdown</h2>
               {/* Keeping the same layout (3 cards in one line) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {strandResults.map((strand, index) => (
+                {(showAllStrands ? strandResults : strandResults.slice(0, 3)).map((strand, index) => (
                   <motion.div
                     key={strand.name}
                     initial={{ opacity: 0, y: 20 }}
@@ -608,6 +696,13 @@ const Results = () => {
                   </motion.div>
                 ))}
               </div>
+              {strandResults.length > 3 && (
+                <div className="flex justify-center mt-4">
+                  <Button variant="outline" onClick={() => setShowAllStrands((prev) => !prev)}>
+                    {showAllStrands ? "Show Less" : "Show More"}
+                  </Button>
+                </div>
+              )}
             </motion.div>
 
             {/* Actions - keeping the shortened buttons layout */}

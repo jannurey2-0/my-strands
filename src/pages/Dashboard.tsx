@@ -77,7 +77,10 @@ const Dashboard = () => {
     const scores: Record<string, number> = {
       STEM: 0,
       ABM: 0,
-      HUMSS: 0
+      HUMSS: 0,
+      GAS: 0,
+      TVL: 0,
+      Arts: 0
     };
 
     // Extract assessment data with proper typing
@@ -138,8 +141,26 @@ const Dashboard = () => {
         { interest: "Humanities and Social Sciences", weight: 12 },
         { interest: "Arts and Design", weight: 10 },
         { interest: "Communication", weight: 8 }
+      ],
+      GAS: [
+        { interest: "Science and Technology", weight: 5 },
+        { interest: "Business and Finance", weight: 5 },
+        { interest: "Humanities and Social Sciences", weight: 5 },
+        { interest: "Communication", weight: 4 },
+        { interest: "Arts and Design", weight: 4 },
+        { interest: "Entrepreneurship", weight: 4 }
+      ],
+      TVL: [
+        { interest: "Technical Vocational Work", weight: 12 },
+        { interest: "Science and Technology", weight: 8 },
+        { interest: "Engineering", weight: 6 }
+      ],
+      Arts: [
+        { interest: "Arts and Design", weight: 12 },
+        { interest: "Communication", weight: 8 },
+        { interest: "Humanities and Social Sciences", weight: 6 }
       ]
-    };
+    } as Record<string, { interest: string; weight: number }[]>;
     
     Object.entries(interestWeights).forEach(([strand, interests]) => {
       interests.forEach(({ interest, weight }) => {
@@ -172,8 +193,33 @@ const Dashboard = () => {
         { hobby: "Dancing", weight: 5 },
         { hobby: "Traveling", weight: 6 },
         { hobby: "Volunteering", weight: 7 }
+      ],
+      GAS: [
+        { hobby: "Reading", weight: 3 },
+        { hobby: "Writing", weight: 3 },
+        { hobby: "Music", weight: 3 },
+        { hobby: "Photography", weight: 3 },
+        { hobby: "Board Games", weight: 3 },
+        { hobby: "Traveling", weight: 3 }
+      ],
+      TVL: [
+        { hobby: "Building/Construction", weight: 8 },
+        { hobby: "DIY/Handicrafts", weight: 7 },
+        { hobby: "Mechanics", weight: 7 },
+        { hobby: "Electronics", weight: 6 },
+        { hobby: "Cooking/Baking", weight: 6 },
+        { hobby: "Woodworking", weight: 6 }
+      ],
+      Arts: [
+        { hobby: "Drawing", weight: 9 },
+        { hobby: "Painting", weight: 9 },
+        { hobby: "Music", weight: 7 },
+        { hobby: "Dancing", weight: 7 },
+        { hobby: "Photography", weight: 6 },
+        { hobby: "Theater/Acting", weight: 7 },
+        { hobby: "Design", weight: 8 }
       ]
-    };
+    } as Record<string, { hobby: string; weight: number }[]>;
     
     Object.entries(hobbyWeights).forEach(([strand, hobbiesList]) => {
       hobbiesList.forEach(({ hobby, weight }) => {
@@ -187,8 +233,11 @@ const Dashboard = () => {
     const dislikePenalties = {
       STEM: ["English", "Araling Panlipunan", "Literature"],
       ABM: ["Science", "Chemistry", "Physics"],
-      HUMSS: ["Mathematics", "Business Math", "Computer Science"]
-    };
+      HUMSS: ["Mathematics", "Business Math", "Computer Science"],
+      GAS: ["Mathematics", "English"],
+      TVL: ["Science", "Physics", "Computer Science", "Technology and Livelihood Education"],
+      Arts: ["Arts", "Literature", "Communication", "English"]
+    } as Record<string, string[]>;
     
     Object.entries(dislikePenalties).forEach(([strand, dislikedSubjects]) => {
       if (dislikedSubjects.includes(academicProfile.leastFavoriteSubject)) {
@@ -201,6 +250,9 @@ const Dashboard = () => {
       scores.STEM += 2;
       scores.ABM += 2;
       scores.HUMSS += 2;
+      scores.GAS += 2;
+      scores.TVL += 2;
+      scores.Arts += 2;
     }
 
     // 6. Bonus for diverse hobbies (5% weight)
@@ -208,6 +260,9 @@ const Dashboard = () => {
       scores.STEM += 3;
       scores.ABM += 3;
       scores.HUMSS += 3;
+      scores.GAS += 3;
+      scores.TVL += 3;
+      scores.Arts += 3;
     }
 
     // 7. Age-based adjustments (5% weight)
@@ -229,9 +284,12 @@ const Dashboard = () => {
     // If total is zero, assign equal percentages
     if (totalScore === 0) {
       return {
-        STEM: 33.33,
-        ABM: 33.33,
-        HUMSS: 33.33
+        STEM: 16.67,
+        ABM: 16.67,
+        HUMSS: 16.67,
+        GAS: 16.67,
+        TVL: 16.67,
+        Arts: 16.67
       };
     }
 
@@ -329,7 +387,7 @@ const Dashboard = () => {
           const strandChartData: StrandData[] = formattedResults.map((result, index) => ({
             name: result.strand,
             value: result.match,
-            color: [`#3b82f6`, `#10b981`, `#f59e0b`][index % 3]
+            color: COLORS[index % COLORS.length]
           }));
           setStrandData(strandChartData);
           
@@ -386,7 +444,7 @@ const Dashboard = () => {
   }, [recentResults]);
 
   // Chart colors
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 
   // Get badge variant based on percentage
   const getMatchBadgeVariant = (percentage: number) => {
