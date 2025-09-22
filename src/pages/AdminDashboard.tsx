@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import QuestionManagement from '@/components/QuestionManagement';
 import { AdminLayout } from '@/components/AdminLayout';
 import SystemSettings from './SystemSettings';
+import { SchoolsManagement } from '@/components/SchoolsManagement';
 
 interface Stats {
   totalStudents: number;
@@ -314,21 +315,7 @@ export default function AdminDashboard() {
         );
       
       case 'schools':
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Schools Management</h1>
-                <p className="text-muted-foreground">Manage schools and their available strands</p>
-              </div>
-            </div>
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Schools management functionality coming soon.
-              </CardContent>
-            </Card>
-          </div>
-        );
+        return <SchoolsManagement />;
       
       case 'settings':
         return <SystemSettings />;
