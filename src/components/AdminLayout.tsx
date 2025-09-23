@@ -55,12 +55,12 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
     try {
       await signOut();
       console.log("Sign out successful, navigating to admin login");
-      // Force a full page refresh to ensure clean state
-      window.location.href = '/admin/login';
+      // Use client-side navigation to avoid server 404s on static hosts
+      navigate('/admin/login', { replace: true });
     } catch (error) {
       console.error("Sign out failed:", error);
-      // Even if sign out fails, redirect to login to reset UI state
-      window.location.href = '/admin/login';
+      // Even if sign out fails, navigate to login to reset UI state
+      navigate('/admin/login', { replace: true });
     }
   };
 
