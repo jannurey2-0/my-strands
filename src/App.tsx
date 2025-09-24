@@ -1,7 +1,7 @@
 // at the top of src/App.tsx
 import { inject } from '@vercel/analytics';
 inject();
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/react"
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -171,6 +171,7 @@ const App = () => (
     <BrowserRouter>
       <div className="pt-header">
         <AppContent />
+        <SpeedInsights />
       </div>
     </BrowserRouter>
   </QueryClientProvider>
