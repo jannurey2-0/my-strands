@@ -13,34 +13,46 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
-        // Check both hash and query parameters for tokens
+        // Get all parameters from URL
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
         
-        const accessToken = hashParams.get("access_token") || queryParams.get("token");
-        const type = hashParams.get("type") || queryParams.get("type");
-        const error = hashParams.get("error") || queryParams.get("error");
+        // Log everything for debugging
+        console.log("Full URL:", window.location.href);
+        console.log("Hash:", window.location.hash);
+        console.log("Search:", window.location.search);
+        console.log("Hash params:", Object.fromEntries(hashParams.entries()));
+        console.log("Query params:", Object.fromEntries(queryParams.entries()));
+
+        // Try to get the session from Supabase
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        console.log("Current session:", session);
+        console.log("Session error:", sessionError);
+
+        // Check for error parameters
+        const error = hashParams.get("error") || queryParams.get("error") || hashParams.get("error_code");
         const errorDescription = hashParams.get("error_description") || queryParams.get("error_description");
 
-        console.log("Callback params:", { accessToken: !!accessToken, type, error, errorDescription });
-
-        // Check if there's an error from Supabase
         if (error) {
+          console.error("Confirmation error:", error, errorDescription);
           setStatus("error");
           setMessage(errorDescription || "Email confirmation failed.");
           return;
         }
 
-        // Check if we have any token indicating a successful auth flow
-        if (accessToken) {
+        // If we have a session, confirmation was successful
+        if (session) {
+          console.log("Session found - email confirmed!");
           // Sign out immediately to prevent auto-login
           await supabase.auth.signOut();
           
           setStatus("success");
           setMessage("Your email has been confirmed successfully!");
         } else {
+          // No session and no error - might be an invalid/expired link
+          console.warn("No session and no error - invalid link?");
           setStatus("error");
-          setMessage("Invalid confirmation link or link has expired.");
+          setMessage("Invalid confirmation link or link has expired. Please try signing up again.");
         }
       } catch (error) {
         console.error("Error during email confirmation:", error);
@@ -49,7 +61,8 @@ export default function AuthCallback() {
       }
     };
 
-    handleEmailConfirmation();
+    // Add a small delay to ensure Supabase has processed the URL
+    setTimeout(handleEmailConfirmation, 100);
   }, []);
 
   const handleProceedToLogin = () => {
