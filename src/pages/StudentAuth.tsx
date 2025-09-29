@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, GraduationCap } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Eye, EyeOff } from 'lucide-react';
 
 export default function StudentAuth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -21,25 +21,38 @@ export default function StudentAuth() {
       setAuthChecked(true);
       
       if (user && profile && profile.role === 'student') {
-        console.log('Student authenticated, navigating to student dashboard');
         navigate('/dashboard');
       }
     }
   }, [user, profile, navigate, loading]);
 
+  const [formError, setFormError] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-
+    setFormError('');
+    
     const formData = new FormData(e.currentTarget);
     const fullName = formData.get('fullName') as string;
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
+    // Validate full name is not empty or just whitespace
+    if (!fullName || !fullName.trim()) {
+      setNameError('Please enter a valid name');
+      return;
+    }
+
+    setIsLoading(true);
     const { error } = await signUp(email, password, fullName);
     
     if (!error) {
       console.log('Student sign up successful');
+    } else {
+      setFormError(error.message || 'An error occurred during sign up');
     }
     
     setIsLoading(false);
@@ -47,7 +60,6 @@ export default function StudentAuth() {
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
@@ -127,12 +139,27 @@ export default function StudentAuth() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signin-password">Password</Label>
-                    <Input 
-                      id="signin-password" 
-                      name="password" 
-                      type="password" 
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="signin-password" 
+                        name="password" 
+                        placeholder="Enter your password"
+                        type={showSignInPassword ? "text" : "password"} 
+                        required 
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowSignInPassword(!showSignInPassword)}
+                      >
+                        {showSignInPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Signing in...' : 'Sign In'}
@@ -150,7 +177,12 @@ export default function StudentAuth() {
                       type="text" 
                       placeholder="Juan Dela Cruz" 
                       required 
+                      onChange={() => setNameError('')}
+                      className={nameError ? 'border-destructive' : ''}
                     />
+                    {nameError && (
+                      <p className="text-sm text-destructive mt-1">{nameError}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
@@ -164,14 +196,34 @@ export default function StudentAuth() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
-                    <Input 
-                      id="signup-password" 
-                      name="password" 
-                      type="password" 
-                      minLength={6}
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="signup-password" 
+                        name="password" 
+                        placeholder="Enter your password"
+                        type={showSignUpPassword ? "text" : "password"} 
+                        minLength={6}
+                        required 
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                      >
+                        {showSignUpPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
+                  {formError && (
+                    <div className="text-sm text-destructive text-center">
+                      {formError}
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Creating Account...' : 'Create Account'}
                   </Button>
