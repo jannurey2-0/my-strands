@@ -13,13 +13,26 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
-        // Get the hash from URL which contains the tokens
+        // Check both hash and query parameters for tokens
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get("access_token");
-        const type = hashParams.get("type");
+        const queryParams = new URLSearchParams(window.location.search);
+        
+        const accessToken = hashParams.get("access_token") || queryParams.get("token");
+        const type = hashParams.get("type") || queryParams.get("type");
+        const error = hashParams.get("error") || queryParams.get("error");
+        const errorDescription = hashParams.get("error_description") || queryParams.get("error_description");
 
-        if (type === "signup" && accessToken) {
-          // Email confirmation successful
+        console.log("Callback params:", { accessToken: !!accessToken, type, error, errorDescription });
+
+        // Check if there's an error from Supabase
+        if (error) {
+          setStatus("error");
+          setMessage(errorDescription || "Email confirmation failed.");
+          return;
+        }
+
+        // Check if we have any token indicating a successful auth flow
+        if (accessToken) {
           // Sign out immediately to prevent auto-login
           await supabase.auth.signOut();
           
