@@ -47,7 +47,7 @@ export default function AuthCallback() {
           await supabase.auth.signOut();
           
           setStatus("success");
-          setMessage("Your email has been confirmed successfully!");
+          setMessage("You can now close this tab and proceed to Login");
         } else {
           // No session and no error - might be an invalid/expired link
           console.warn("No session and no error - invalid link?");
@@ -101,7 +101,7 @@ export default function AuthCallback() {
               className="w-full"
               size="lg"
             >
-              You can now close this tab and proceed to Login
+              Proceed to Login
             </Button>
           </CardContent>
         )}
