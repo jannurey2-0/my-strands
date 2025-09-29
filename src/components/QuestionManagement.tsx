@@ -94,7 +94,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
     try {
       const questionData = {
         question: formData.question,
-        options: JSON.stringify(options),
+        options: options as any,
         correct_answer: formData.correct_answer,
         category: formData.category,
         difficulty_level: formData.difficulty_level,
@@ -104,8 +104,8 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
       if (editingQuestion) {
         const { error } = await supabase
           .from('aptitude_questions')
-          .update(questionData)
-          .eq('id', editingQuestion.id);
+          .update(questionData as any)
+          .eq('id', editingQuestion.id as any);
 
         if (error) throw error;
 
@@ -116,7 +116,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
       } else {
         const { error } = await supabase
           .from('aptitude_questions')
-          .insert([questionData]);
+          .insert([questionData as any]);
 
         if (error) throw error;
 
@@ -143,7 +143,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
       const { error } = await supabase
         .from('aptitude_questions')
         .delete()
-        .eq('id', questionId);
+        .eq('id', questionId as any);
 
       if (error) throw error;
 
@@ -190,7 +190,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
                 
                 return {
                   question: row.question,
-                  options: JSON.stringify(options),
+                  options: options,
                   correct_answer: parseInt(row.correct_answer) || 0,
                   category: row.category || 'math',
                   difficulty_level: parseInt(row.difficulty_level) || 1,
@@ -213,7 +213,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
               const batch = questionsToInsert.slice(i, i + batchSize);
               const { error } = await supabase
                 .from('aptitude_questions')
-                .insert(batch);
+                .insert(batch as any);
 
               if (error) throw error;
             }

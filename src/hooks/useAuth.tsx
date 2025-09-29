@@ -82,8 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user_id: user.id,
             email: user.email!,
             full_name: user.email!.split("@")[0],
-            role: "student"
-          })
+            role: "student" as any
+          } as any)
           .select("*")
           .single();
 
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         console.log("Profile created:", data);
-        return data as Profile;
+        return data as any as Profile;
       } catch (err: any) {
         console.error("Unexpected error creating profile:", err);
         toast({
@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const fetchPromise = supabase
             .from("profiles")
             .select("*")
-            .eq("user_id", userId)
+            .eq("user_id", userId as any)
             .single()
             .then(async ({ data, error }) => {
               if (error) {
@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
                 throw error;
               }
-              return data as Profile;
+              return data as any as Profile;
             });
 
           return await Promise.race([fetchPromise, timeoutPromise]);
@@ -345,10 +345,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const { data: profileData } = await supabase
             .from("profiles")
             .select("*")
-            .eq("user_id", session.user.id)
+            .eq("user_id", session.user.id as any)
             .maybeSingle();
 
-          safeSetAuthState({ profile: profileData || null });
+          safeSetAuthState({ profile: (profileData as any) || null });
         } else {
           safeSetAuthState({ profile: null });
         }

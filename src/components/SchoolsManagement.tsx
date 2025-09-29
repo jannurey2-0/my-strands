@@ -60,12 +60,16 @@ export const SchoolsManagement = () => {
       if (error) throw error;
       
       // Parse strands JSON
-      const parsedData = (data || []).map(school => ({
-        ...school,
-        strands: Array.isArray(school.strands) 
-          ? school.strands.map(s => String(s)) 
-          : []
-      }));
+      const parsedData = (data || []).map((school: any) => {
+        const strandsArray = Array.isArray(school.strands) 
+          ? school.strands.map((s: any) => String(s))
+          : [];
+        
+        return {
+          ...school,
+          strands: strandsArray as any
+        };
+      });
       
       setSchools(parsedData as SchoolData[]);
     } catch (error) {
@@ -130,8 +134,8 @@ export const SchoolsManagement = () => {
         // Update existing school
         const { error } = await supabase
           .from('schools')
-          .update(schoolData)
-          .eq('id', editingSchool.id);
+          .update(schoolData as any)
+          .eq('id', editingSchool.id as any);
 
         if (error) throw error;
         
@@ -143,7 +147,7 @@ export const SchoolsManagement = () => {
         // Insert new school
         const { error } = await supabase
           .from('schools')
-          .insert([schoolData]);
+          .insert([schoolData as any]);
 
         if (error) throw error;
         
@@ -185,7 +189,7 @@ export const SchoolsManagement = () => {
       const { error } = await supabase
         .from('schools')
         .delete()
-        .eq('id', id);
+        .eq('id', id as any);
 
       if (error) throw error;
       

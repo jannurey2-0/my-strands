@@ -31,7 +31,7 @@ export default function Profile() {
       const { error } = await supabase
         .from("profiles")
         .update({ full_name: fullName })
-        .eq("user_id", user.id);
+        .eq("user_id", user.id as any);
 
       if (error) throw error;
 

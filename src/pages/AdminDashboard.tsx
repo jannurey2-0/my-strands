@@ -94,10 +94,13 @@ function StudentsManagement() {
 
   const toggleActive = async (student: StudentProfile, next: boolean) => {
     try {
-      const { error } = await supabase.from('profiles').update({ is_active: next as any }).eq('id', student.id);
-      if (error) throw error;
-      useToast().toast({ title: next ? 'Account activated' : 'Account deactivated', description: student.email });
-      fetchStudents();
+      // Note: is_active field does not exist in profiles table
+      // This feature would require a database migration to add the is_active column
+      useToast().toast({ 
+        title: 'Feature not available', 
+        description: 'Account activation requires adding an is_active column to the profiles table.',
+        variant: 'destructive' 
+      });
     } catch (err) {
       console.error('Error updating active status:', err);
       useToast().toast({ title: 'Update failed', description: 'Activation toggle requires an `is_active` column on profiles.', variant: 'destructive' });

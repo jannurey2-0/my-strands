@@ -43,7 +43,7 @@ export const assessmentService = {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id, user_id')
-        .eq('id', studentId)
+        .eq('id', studentId as any)
         .single();
       
       if (profileError) {
@@ -56,7 +56,7 @@ export const assessmentService = {
       // Now try to insert the assessment
       const { data: result, error } = await supabase
         .from('assessment_responses')
-        .insert(insertData)
+        .insert(insertData as any)
         .select();
 
       if (error) {
@@ -93,7 +93,7 @@ export const assessmentService = {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id, user_id')
-        .eq('id', studentId)
+        .eq('id', studentId as any)
         .single();
       
       if (profileError) {
@@ -104,7 +104,7 @@ export const assessmentService = {
       const { data, error } = await supabase
         .from('assessment_responses')
         .select('*')
-        .eq('student_id', studentId)
+        .eq('student_id', studentId as any)
         .order('submitted_at', { ascending: false });
 
       if (error) {
@@ -112,7 +112,7 @@ export const assessmentService = {
         throw new Error(`Failed to fetch assessments: ${error.message}`);
       }
 
-      return data as Tables<'assessment_responses'>[];
+      return data as any as Tables<'assessment_responses'>[];
     } catch (error) {
       console.error('Error in getStudentAssessments:', error);
       throw error;
@@ -176,7 +176,7 @@ export const assessmentService = {
       }
 
       // Transform the data to match our interface
-      const questions = (data || []).map(q => ({
+      const questions = ((data || []) as any[]).map((q: any) => ({
         id: q.id,
         question: q.question,
         // Convert options to the expected format (string | string[] | null)
@@ -185,7 +185,7 @@ export const assessmentService = {
         category: q.category,
         difficulty_level: q.difficulty_level,
         // Type assertion since the type field exists in the database but not in the generated types
-        type: (q as any).type || 'multiple_choice'
+        type: q.type || 'multiple_choice'
       }));
 
       return questions;
@@ -207,7 +207,7 @@ export const assessmentService = {
         throw new Error(`Failed to fetch system settings: ${error.message}`);
       }
 
-      return data as Tables<'system_settings'>[];
+      return data as any as Tables<'system_settings'>[];
     } catch (error) {
       console.error('Error in getSystemSettings:', error);
       throw error;
@@ -222,8 +222,8 @@ export const assessmentService = {
           is_under_maintenance: isUnderMaintenance,
           maintenance_message: maintenanceMessage,
           updated_at: new Date().toISOString()
-        })
-        .eq('page_name', pageName)
+        } as any)
+        .eq('page_name', pageName as any)
         .select()
         .single();
 
@@ -232,7 +232,7 @@ export const assessmentService = {
         throw new Error(`Failed to update system setting: ${error.message}`);
       }
 
-      return data as Tables<'system_settings'>;
+      return data as any as Tables<'system_settings'>;
     } catch (error) {
       console.error('Error in updateSystemSetting:', error);
       throw error;
@@ -245,7 +245,7 @@ export const assessmentService = {
       const { data, error } = await supabase
         .from('system_settings')
         .select('is_under_maintenance, maintenance_message')
-        .eq('page_name', pageName)
+        .eq('page_name', pageName as any)
         .single();
 
       if (error) {
@@ -255,8 +255,8 @@ export const assessmentService = {
       }
 
       return {
-        isUnderMaintenance: data.is_under_maintenance,
-        maintenanceMessage: data.maintenance_message || 'Currently Under Development'
+        isUnderMaintenance: (data as any)?.is_under_maintenance || false,
+        maintenanceMessage: (data as any)?.maintenance_message || 'Currently Under Development'
       };
     } catch (error) {
       console.error('Error in isPageUnderMaintenance:', error);
