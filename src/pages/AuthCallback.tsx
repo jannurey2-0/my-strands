@@ -101,7 +101,7 @@ export default function AuthCallback() {
               className="w-full"
               size="lg"
             >
-              Proceed to Login
+              You can now close this tab and proceed to Login
             </Button>
           </CardContent>
         )}
