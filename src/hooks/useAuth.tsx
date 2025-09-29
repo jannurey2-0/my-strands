@@ -258,7 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ---- Auth Actions ----
   const signUp = async (email: string, password: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/auth/callback`; // customize
+    const redirectUrl = `${window.location.origin}/auth/callback`;
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -278,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       toast({
         title: "Check your email",
-        description: "We've sent you a confirmation link."
+        description: "We've sent you a confirmation link to complete your registration."
       });
     }
 

@@ -25,6 +25,7 @@ import TestAssessment from "./pages/TestAssessment";
 import DatabaseTest from "./pages/DatabaseTest";
 import AuthDebug from "./pages/AuthDebug";
 import Profile from "./pages/Profile";
+import AuthCallback from "./pages/AuthCallback";
 import { ScrollToTopOnNavigate } from "./components/ScrollToTopOnNavigate";
 
 // Debug component to log current route
@@ -60,7 +61,12 @@ const AppContent = () => (
             <AdminAuth />
           </ErrorBoundary>
         } />
-        <Route 
+        <Route path="/auth/callback" element={
+          <ErrorBoundary>
+            <AuthCallback />
+          </ErrorBoundary>
+        } />
+        <Route
           path="/dashboard" 
           element={
             <ErrorBoundary>
