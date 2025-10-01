@@ -6,6 +6,16 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -20,6 +30,7 @@ export const Header = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showSignOutDialog, setShowSignOutDialog] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -61,11 +72,16 @@ export const Header = () => {
     }
   };
 
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   // Check if user is a student
   const isStudent = user && profile?.role === 'student';
 
-  const closeMobileMenu = () => {
-    setMobileMenuOpen(false);
+  // Show sign out confirmation dialog
+  const confirmSignOut = () => {
+    setShowSignOutDialog(true);
   };
 
   // Handle sign out with better error handling
@@ -73,16 +89,17 @@ export const Header = () => {
     try {
       console.log("Initiating sign out process");
       await signOut();
-      console.log("Sign out completed, navigating to home");
-      // Navigate to home page with success parameter
-      navigate('/?signout=success');
+      console.log("Sign out completed, navigating to login");
+      // Navigate to login page after sign out
+      navigate('/student/login');
     } catch (error) {
       console.error("Sign out error:", error);
-      // Even if sign out fails, navigate to home to reset UI state
-      navigate('/?signout=success');
+      // Navigate to login page even if sign out fails
+      navigate('/student/login');
     } finally {
-      // Close mobile menu if open
+      // Close mobile menu and dialog if open
       setMobileMenuOpen(false);
+      setShowSignOutDialog(false);
     }
   };
 
@@ -218,7 +235,7 @@ export const Header = () => {
                       <Link to="/profile">Profile</Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut}>Sign Out</DropdownMenuItem>
+                    <DropdownMenuItem onClick={confirmSignOut}>Sign Out</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -347,7 +364,7 @@ export const Header = () => {
                       <Button variant="ghost" className="w-full justify-start" asChild onClick={closeMobileMenu}>
                         <Link to="/profile">Profile</Link>
                       </Button>
-                      <Button variant="ghost" className="w-full justify-start" onClick={() => { handleSignOut(); closeMobileMenu(); }}>
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => { confirmSignOut(); closeMobileMenu(); }}>
                         Sign Out
                       </Button>
                     </div>
@@ -372,6 +389,27 @@ export const Header = () => {
           </div>
         </div>
       </div>
+
+      {/* Sign Out Confirmation Dialog */}
+      <AlertDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to sign out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You'll need to sign in again to access your account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleSignOut}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sign Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.header>
   );
-};
+}

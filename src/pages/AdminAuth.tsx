@@ -96,7 +96,7 @@ export default function AdminAuth() {
                   id="admin-email" 
                   name="email" 
                   type="email" 
-                  placeholder="admin@shsnavigator.com" 
+                  placeholder="Enter your email" 
                   required 
                 />
               </div>
@@ -106,6 +106,7 @@ export default function AdminAuth() {
                   id="admin-password" 
                   name="password" 
                   type="password" 
+                  placeholder='Enter your password'
                   required 
                 />
               </div>

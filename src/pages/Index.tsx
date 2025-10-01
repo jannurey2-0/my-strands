@@ -515,7 +515,7 @@ const Index = () => {
                   <div>
                     <h4 className="font-semibold mb-1">Our Office</h4>
                     <p className="text-muted-foreground">
-                      123 Education Street, Manila, Philippines
+                      Pagadian City, Philippines
                     </p>
                   </div>
                 </div>
@@ -527,7 +527,7 @@ const Index = () => {
                   <div>
                     <h4 className="font-semibold mb-1">Phone</h4>
                     <p className="text-muted-foreground">
-                      +63 123 456 7890
+                      +63 910 432 0220
                     </p>
                     <p className="text-muted-foreground text-sm">
                       Mon-Fri, 8:00 AM - 5:00 PM

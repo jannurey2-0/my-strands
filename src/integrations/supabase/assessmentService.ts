@@ -1,5 +1,17 @@
+// In assessmentService.ts
+
 import { supabase } from '@/integrations/supabase/client';
 import { TablesInsert, Tables } from '@/integrations/supabase/types';
+
+// Add AssessmentAttempt interface
+interface AssessmentAttempt {
+  id: string;
+  question_ids: string[];
+  student_id: string;
+  created_at: string;
+  completed_at: string | null;
+  score: number | null;
+}
 
 export interface AssessmentData {
   basicInfo: {
@@ -17,7 +29,6 @@ export interface AssessmentData {
   };
   personalInterests: string[];
   hobbies: string[];
-  // keys are question ids (string or number) and values can be numeric choice indices or free-text answers
   aptitudeAnswers: Record<string, number | string>;
 }
 
@@ -25,9 +36,6 @@ export const assessmentService = {
   // Submit assessment response
   submitAssessment: async (data: AssessmentData, studentId: string) => {
     try {
-      console.log('Submitting assessment for student:', studentId);
-      console.log('Assessment data:', data);
-      
       const insertData = {
         student_id: studentId,
         basic_info: data.basicInfo,
@@ -36,49 +44,14 @@ export const assessmentService = {
         hobbies: data.hobbies,
         aptitude_answers: data.aptitudeAnswers,
       } as TablesInsert<'assessment_responses'>;
-      
-      console.log('Insert data:', insertData);
-      
-      // First, let's check if the student profile exists
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, user_id')
-        .eq('id', studentId as any)
-        .single();
-      
-      if (profileError) {
-        console.error('Profile check error:', profileError);
-        throw new Error(`Student profile not found: ${profileError.message}`);
-      }
-      
-      console.log('Profile exists:', profileData);
-      
-      // Now try to insert the assessment
+
       const { data: result, error } = await supabase
         .from('assessment_responses')
-        .insert(insertData as any)
-        .select();
+        .insert(insertData)
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Supabase insert error:', error);
-        console.error('Error details:', {
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-          message: error.message
-        });
-        
-        // Provide more specific error messages based on common issues
-        if (error.code === '23503') {
-          throw new Error('Database constraint error: Student profile may not exist or data format is incorrect');
-        } else if (error.code === '42501') {
-          throw new Error('Permission denied: You may not have permission to submit assessments. This could be due to a database policy issue.');
-        } else {
-          throw new Error(`Failed to submit assessment: ${error.message} (Code: ${error.code})`);
-        }
-      }
-
-      console.log('Assessment submitted successfully:', result);
+      if (error) throw error;
       return { success: true, data: result };
     } catch (error) {
       console.error('Error in submitAssessment:', error);
@@ -89,30 +62,14 @@ export const assessmentService = {
   // Get assessment responses for a student
   getStudentAssessments: async (studentId: string) => {
     try {
-      // First check if the student profile exists and get the user_id
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, user_id')
-        .eq('id', studentId as any)
-        .single();
-      
-      if (profileError) {
-        console.error('Profile check error:', profileError);
-        throw new Error(`Student profile not found: ${profileError.message}`);
-      }
-      
       const { data, error } = await supabase
         .from('assessment_responses')
         .select('*')
-        .eq('student_id', studentId as any)
+        .eq('student_id', studentId)
         .order('submitted_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching assessments:', error);
-        throw new Error(`Failed to fetch assessments: ${error.message}`);
-      }
-
-      return data as any as Tables<'assessment_responses'>[];
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Error in getStudentAssessments:', error);
       throw error;
@@ -124,17 +81,10 @@ export const assessmentService = {
     try {
       const { data, error } = await supabase
         .from('assessment_responses')
-        .select(`
-          *,
-          profiles:student_id(full_name, email)
-        `)
+        .select('*')
         .order('submitted_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching all assessments:', error);
-        throw new Error(`Failed to fetch all assessments: ${error.message}`);
-      }
-
+      if (error) throw error;
       return data;
     } catch (error) {
       console.error('Error in getAllAssessments:', error);
@@ -150,11 +100,7 @@ export const assessmentService = {
         .select('*')
         .order('name', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching schools:', error);
-        throw new Error(`Failed to fetch schools: ${error.message}`);
-      }
-
+      if (error) throw error;
       return data;
     } catch (error) {
       console.error('Error in getAllSchools:', error);
@@ -162,35 +108,83 @@ export const assessmentService = {
     }
   },
 
-  // Fetch aptitude questions for the assessment
-  getAptitudeQuestions: async () => {
+  // Get or create an assessment attempt and return the questions
+  getAptitudeQuestions: async (studentId: string) => {
     try {
-      const { data, error } = await supabase
+      // First, get the profile ID for this user
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', studentId)
+        .single();
+
+      if (profileError) throw profileError;
+      if (!profileData) throw new Error('User profile not found');
+
+      // Now get or create an assessment attempt using the profile ID
+      const { data: attemptData, error: attemptError } = await (supabase as any)
+        .rpc('get_or_create_assessment_attempt', { 
+          p_student_id: profileData.id  // Use profile ID, not user ID
+        })
+        .single();
+  
+      if (attemptError) throw attemptError;
+      if (!attemptData) throw new Error('Failed to create assessment attempt');
+  
+      const attempt = attemptData as unknown as AssessmentAttempt;
+  
+      // Rest of your function...
+
+      // Get the questions for this attempt
+      const { data: questionsData, error: questionsError } = await supabase
         .from('aptitude_questions')
         .select('*')
-        .order('created_at', { ascending: true });
+        .in('id', attempt.question_ids);
 
-      if (error) {
-        console.error('Error fetching aptitude questions:', error);
-        throw new Error(`Failed to fetch aptitude questions: ${error.message}`);
-      }
+      if (questionsError) throw questionsError;
 
       // Transform the data to match our interface
-      const questions = ((data || []) as any[]).map((q: any) => ({
-        id: q.id,
-        question: q.question,
-        // Convert options to the expected format (string | string[] | null)
-        options: q.options as string | string[] | null,
-        correct_answer: q.correct_answer,
-        category: q.category,
-        difficulty_level: q.difficulty_level,
-        // Type assertion since the type field exists in the database but not in the generated types
-        type: q.type || 'multiple_choice'
-      }));
+      const questions = (questionsData || [])
+        .sort((a, b) => {
+          const aIndex = attempt.question_ids.indexOf(a.id);
+          const bIndex = attempt.question_ids.indexOf(b.id);
+          return aIndex - bIndex;
+        })
+        .map((q: any) => ({
+          id: q.id,
+          question: q.question,
+          options: q.options as string | string[] | null,
+          correct_answer: q.correct_answer,
+          category: q.category,
+          difficulty_level: q.difficulty_level,
+          type: q.type || 'multiple_choice',
+          attempt_id: attempt.id
+        }));
 
       return questions;
     } catch (error) {
       console.error('Error in getAptitudeQuestions:', error);
+      throw error;
+    }
+  },
+
+  // Mark an assessment attempt as completed
+  completeAssessmentAttempt: async (attemptId: string, score: number) => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('assessment_attempts')
+        .update({
+          completed_at: new Date().toISOString(),
+          score: score
+        })
+        .eq('id', attemptId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error in completeAssessmentAttempt:', error);
       throw error;
     }
   },
@@ -202,12 +196,8 @@ export const assessmentService = {
         .from('system_settings')
         .select('*');
 
-      if (error) {
-        console.error('Error fetching system settings:', error);
-        throw new Error(`Failed to fetch system settings: ${error.message}`);
-      }
-
-      return data as any as Tables<'system_settings'>[];
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Error in getSystemSettings:', error);
       throw error;
@@ -222,17 +212,13 @@ export const assessmentService = {
           is_under_maintenance: isUnderMaintenance,
           maintenance_message: maintenanceMessage,
           updated_at: new Date().toISOString()
-        } as any)
-        .eq('page_name', pageName as any)
+        })
+        .eq('page_name', pageName)
         .select()
         .single();
 
-      if (error) {
-        console.error('Error updating system setting:', error);
-        throw new Error(`Failed to update system setting: ${error.message}`);
-      }
-
-      return data as any as Tables<'system_settings'>;
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Error in updateSystemSetting:', error);
       throw error;
@@ -245,22 +231,20 @@ export const assessmentService = {
       const { data, error } = await supabase
         .from('system_settings')
         .select('is_under_maintenance, maintenance_message')
-        .eq('page_name', pageName as any)
+        .eq('page_name', pageName)
         .single();
 
       if (error) {
         console.error('Error checking page maintenance status:', error);
-        // If no setting found, assume page is not under maintenance
         return { isUnderMaintenance: false, maintenanceMessage: 'Currently Under Development' };
       }
 
       return {
-        isUnderMaintenance: (data as any)?.is_under_maintenance || false,
-        maintenanceMessage: (data as any)?.maintenance_message || 'Currently Under Development'
+        isUnderMaintenance: data?.is_under_maintenance || false,
+        maintenanceMessage: data?.maintenance_message || 'Currently Under Development'
       };
     } catch (error) {
       console.error('Error in isPageUnderMaintenance:', error);
-      // If error occurs, assume page is not under maintenance
       return { isUnderMaintenance: false, maintenanceMessage: 'Currently Under Development' };
     }
   }

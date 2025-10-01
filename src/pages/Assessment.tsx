@@ -102,6 +102,7 @@ const Assessment = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aptitudeQuestions, setAptitudeQuestions] = useState<AptitudeQuestionFromDB[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
   const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
   
   // Form data state
@@ -150,8 +151,8 @@ const Assessment = () => {
 
   // Load aptitude questions when user reaches the aptitude test step
   useEffect(() => {
-    // Don't load questions if page is under maintenance
-    if (maintenance?.isUnderMaintenance) {
+    // Don't load questions if page is under maintenance or user is not logged in
+    if (maintenance?.isUnderMaintenance || !user?.id) {
       return;
     }
 
@@ -159,7 +160,13 @@ const Assessment = () => {
       if (currentStep === 4 && aptitudeQuestions.length === 0 && !loadingQuestions) {
         setLoadingQuestions(true);
         try {
-          const questions = await assessmentService.getAptitudeQuestions();
+          const questions = await assessmentService.getAptitudeQuestions(user.id);
+          
+          // Extract attempt ID from the first question (all questions in the set have the same attempt_id)
+          if (questions.length > 0 && questions[0].attempt_id) {
+            setCurrentAttemptId(questions[0].attempt_id);
+          }
+          
           setAptitudeQuestions(questions);
         } catch (error) {
           console.error('Error fetching aptitude questions:', error);
@@ -175,7 +182,7 @@ const Assessment = () => {
     };
 
     fetchAptitudeQuestions();
-  }, [currentStep, aptitudeQuestions.length, loadingQuestions, toast, maintenance?.isUnderMaintenance]);
+  }, [currentStep, aptitudeQuestions.length, loadingQuestions, toast, maintenance?.isUnderMaintenance, user?.id]);
 
   // Save form data to localStorage whenever it changes
   useEffect(() => {
@@ -234,6 +241,25 @@ const Assessment = () => {
     localStorage.removeItem('assessmentFormData');
     localStorage.removeItem('assessmentCurrentStep');
   };
+  
+  // Calculate score based on correct answers (implement your own scoring logic)
+  const calculateScore = (answers: Record<string, number | string>): number => {
+    // This is a simple implementation - adjust based on your scoring system
+    const totalQuestions = Object.keys(answers).length;
+    if (totalQuestions === 0) return 0;
+    
+    let correctAnswers = 0;
+    
+    aptitudeQuestions.forEach(question => {
+      const userAnswer = answers[question.id];
+      if (userAnswer === question.correct_answer) {
+        correctAnswers++;
+      }
+    });
+    
+    // Return percentage score
+    return Math.round((correctAnswers / totalQuestions) * 100);
+  };
 
   // Initialize form with user profile data
   useEffect(() => {
@@ -246,8 +272,27 @@ const Assessment = () => {
     }
   }, [profile]);
 
+  // State for age validation error
+  const [ageError, setAgeError] = useState<string | null>(null);
+
   // Handle form input changes
   const handleInputChange = (field: string, value: string) => {
+    if (field === 'age') {
+      // Only allow numeric input and empty string
+      if (value === '' || /^\d+$/.test(value)) {
+        const age = value ? parseInt(value, 10) : 0;
+        if (age > 99) {
+          setAgeError('Age must be 99 or younger');
+        } else if (age < 1) {
+          setAgeError('Age must be at least 1');
+        } else {
+          setAgeError(null);
+        }
+      } else {
+        // Don't update the field if it's not a number
+        return;
+      }
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -344,6 +389,20 @@ const Assessment = () => {
     }, 30000); // 30 second timeout
 
     try {
+      // Calculate aptitude score before submission
+      const aptitudeScore = calculateAptitudeScore();
+      
+      // If we have an assessment attempt in progress, mark it as completed
+      if (currentAttemptId) {
+        try {
+          await assessmentService.completeAssessmentAttempt(currentAttemptId, aptitudeScore);
+        } catch (error) {
+          console.error("Error completing assessment attempt:", error);
+          // Don't fail the submission if we can't complete the attempt
+          // This is just for tracking purposes
+        }
+      }
+
       // Prepare data for submission
       const assessmentData: AssessmentData = {
         basicInfo: {
@@ -442,7 +501,10 @@ const Assessment = () => {
     switch (currentStep) {
       case 0: // Basic Information
         // Email is pre-filled and read-only, so we don't require it in validation
-        return formData.fullName && formData.age && formData.gender && formData.school && formData.region;
+        // Also check that age is valid (1-99)
+        const age = parseInt(formData.age, 10);
+        const isAgeValid = !isNaN(age) && age >= 1 && age <= 99;
+        return formData.fullName && isAgeValid && formData.gender && formData.school && formData.region;
       case 1: // Academic Profile
         return formData.gwa && formData.favoriteSubject && formData.leastFavoriteSubject;
       case 2: // Personal Interests
@@ -507,8 +569,13 @@ const Assessment = () => {
                   value={formData.age}
                   onChange={(e) => handleInputChange("age", e.target.value)}
                   placeholder="Enter your age"
-                  className="py-3"
+                  min="1"
+                  max="99"
+                  className={`py-3 ${ageError ? 'border-red-500' : ''}`}
                 />
+                {ageError && (
+                  <p className="text-sm text-red-500">{ageError}</p>
+                )}
               </div>
             </div>
             
