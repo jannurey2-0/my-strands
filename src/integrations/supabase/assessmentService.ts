@@ -133,8 +133,6 @@ export const assessmentService = {
   
       const attempt = attemptData as unknown as AssessmentAttempt;
   
-      // Rest of your function...
-
       // Get the questions for this attempt
       const { data: questionsData, error: questionsError } = await supabase
         .from('aptitude_questions')
@@ -143,8 +141,8 @@ export const assessmentService = {
 
       if (questionsError) throw questionsError;
 
-      // Transform the data to match our interface
-      const questions = (questionsData || [])
+      // Transform the data to match our interface and randomize the order
+      let questions = (questionsData || [])
         .sort((a, b) => {
           const aIndex = attempt.question_ids.indexOf(a.id);
           const bIndex = attempt.question_ids.indexOf(b.id);
@@ -160,6 +158,11 @@ export const assessmentService = {
           type: q.type || 'multiple_choice',
           attempt_id: attempt.id
         }));
+
+      // Randomize the order of questions and limit to 15
+      questions = questions
+        .sort(() => Math.random() - 0.5) // Shuffle the questions
+        .slice(0, 15); // Limit to 15 questions
 
       return questions;
     } catch (error) {

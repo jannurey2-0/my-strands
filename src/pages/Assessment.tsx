@@ -869,7 +869,7 @@ const Assessment = () => {
             <div className="text-center mb-6">
               <h3 className="text-xl font-semibold mb-2">Mini Aptitude Test</h3>
               <p className="text-muted-foreground">
-                Answer the following questions to assess your skills and knowledge
+                Answer the following 15 questions to assess your skills and knowledge
               </p>
             </div>
             
@@ -1096,7 +1096,7 @@ const Assessment = () => {
                     <div>
                       <h4 className="font-medium">Your Score</h4>
                       <p className="text-sm text-muted-foreground">
-                        Based on {aptitudeQuestions.filter(q => q.type === 'multiple_choice' || q.type === 'true_false').length} scored questions
+                        Based on {aptitudeQuestions.filter(q => q.type === 'multiple_choice' || q.type === 'true_false').length} scored questions out of 15
                       </p>
                     </div>
                     <div className="text-right">
