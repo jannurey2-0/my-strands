@@ -158,9 +158,24 @@ const Assessment = () => {
 
     const fetchAptitudeQuestions = async () => {
       if (currentStep === 4 && aptitudeQuestions.length === 0 && !loadingQuestions) {
+        // Check if user has student role
+        const userRole = profile?.role || 'student'; // Default to student if no role specified
+        if (userRole !== 'student' && userRole !== 'admin') {
+          console.warn('User does not have appropriate role to access questions:', userRole);
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to access the aptitude test.",
+            variant: "destructive"
+          });
+          setLoadingQuestions(false);
+          return;
+        }
+        
         setLoadingQuestions(true);
         try {
+          console.log('Fetching aptitude questions for user:', user.id);
           const questions = await assessmentService.getAptitudeQuestions(user.id);
+          console.log('Received questions:', questions);
           
           // Extract attempt ID from the first question (all questions in the set have the same attempt_id)
           if (questions.length > 0 && questions[0].attempt_id) {
@@ -168,11 +183,14 @@ const Assessment = () => {
           }
           
           setAptitudeQuestions(questions);
+          
+          // Log success for debugging
+          console.log(`Successfully loaded ${questions.length} aptitude questions`);
         } catch (error) {
           console.error('Error fetching aptitude questions:', error);
           toast({
             title: "Error Loading Questions",
-            description: "Failed to load aptitude questions. Please try again.",
+            description: `Failed to load aptitude questions: ${error.message || 'Unknown error'}. Please try again.`,
             variant: "destructive"
           });
         } finally {
@@ -210,8 +228,8 @@ const Assessment = () => {
           Object.keys(parsedData.aptitudeAnswers).forEach(key => {
             const answer = parsedData.aptitudeAnswers[key];
             // Convert string numbers back to numbers for consistency
-            processedAptitudeAnswers[key] = typeof answer === 'string' && !isNaN(parseInt(answer)) 
-              ? parseInt(answer) 
+            processedAptitudeAnswers[key] = typeof answer === 'string' && !isNaN(parseInt(answer, 10)) 
+              ? parseInt(answer, 10) 
               : answer;
           });
         }
@@ -234,31 +252,12 @@ const Assessment = () => {
         setCurrentStep(step);
       }
     }
-  }, [maintenance?.isUnderMaintenance]);
+  }, [maintenance?.isUnderMaintenance, user?.id]);
 
   // Clear saved data after successful submission
   const clearSavedData = () => {
     localStorage.removeItem('assessmentFormData');
     localStorage.removeItem('assessmentCurrentStep');
-  };
-  
-  // Calculate score based on correct answers (implement your own scoring logic)
-  const calculateScore = (answers: Record<string, number | string>): number => {
-    // This is a simple implementation - adjust based on your scoring system
-    const totalQuestions = Object.keys(answers).length;
-    if (totalQuestions === 0) return 0;
-    
-    let correctAnswers = 0;
-    
-    aptitudeQuestions.forEach(question => {
-      const userAnswer = answers[question.id];
-      if (userAnswer === question.correct_answer) {
-        correctAnswers++;
-      }
-    });
-    
-    // Return percentage score
-    return Math.round((correctAnswers / totalQuestions) * 100);
   };
 
   // Initialize form with user profile data
@@ -337,8 +336,8 @@ const Assessment = () => {
   // Handle aptitude test answers (supports numeric choices or free text)
   const handleAptitudeAnswer = (questionId: string, answer: number | string) => {
     // Ensure numeric values are stored as numbers for consistency
-    const processedAnswer = typeof answer === 'string' && !isNaN(parseInt(answer)) 
-      ? parseInt(answer) 
+    const processedAnswer = typeof answer === 'string' && !isNaN(parseInt(answer, 10)) 
+      ? parseInt(answer, 10) 
       : answer;
       
     setFormData(prev => ({
@@ -912,7 +911,7 @@ const Assessment = () => {
                       {question.type === 'multiple_choice' ? (
                         <RadioGroup
                           value={formData.aptitudeAnswers[question.id]?.toString() || ""}
-                          onValueChange={(value) => handleAptitudeAnswer(question.id, parseInt(value))}
+                          onValueChange={(value) => handleAptitudeAnswer(question.id, parseInt(value, 10))}
                           className="space-y-3"
                         >
                           {options.map((option: string, optionIndex: number) => (

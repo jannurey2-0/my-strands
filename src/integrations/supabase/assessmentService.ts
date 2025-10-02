@@ -122,30 +122,99 @@ export const assessmentService = {
       if (!profileData) throw new Error('User profile not found');
 
       // Now get or create an assessment attempt using the profile ID
+      console.log('Calling get_or_create_assessment_attempt with profile ID:', profileData.id);
       const { data: attemptData, error: attemptError } = await (supabase as any)
         .rpc('get_or_create_assessment_attempt', { 
-          p_student_id: profileData.id  // Use profile ID, not user ID
+          p_student_id: profileData.id  // Changed from student_id to p_student_id
         })
         .single();
   
-      if (attemptError) throw attemptError;
+      if (attemptError) {
+        console.error('Error calling get_or_create_assessment_attempt:', attemptError);
+        // Provide more detailed error information
+        if (attemptError.code === 'PGRST202') {
+          throw new Error(`Database function not found. This usually means the database migrations haven't been applied correctly. Details: ${attemptError.message}`);
+        }
+        throw attemptError;
+      }
       if (!attemptData) throw new Error('Failed to create assessment attempt');
+      
+      console.log('Assessment attempt ID:', attemptData);
   
-      const attempt = attemptData as unknown as AssessmentAttempt;
+      // Now fetch the complete attempt data
+      const { data: fullAttemptData, error: fetchError } = await (supabase as any)
+        .from('assessment_attempts')
+        .select('*')
+        .eq('id', attemptData)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      if (!fullAttemptData) throw new Error('Failed to fetch assessment attempt data');
+      
+      const attempt = fullAttemptData as unknown as AssessmentAttempt;
   
+      // Log the attempt details for debugging
+      console.log('Fetching questions for attempt:', attempt);
+      console.log('Question IDs to fetch:', attempt.question_ids);
+
       // Get the questions for this attempt
+      console.log('Question IDs to fetch (before query):', attempt.question_ids);
+      if (attempt.question_ids && attempt.question_ids.length > 0) {
+        console.log('Question IDs type:', typeof attempt.question_ids[0]);
+      }
+      
+      // First, let's check what questions exist in the database without RLS
+      const { data: allQuestionsCheck, error: allQuestionsCheckError } = await supabase
+        .from('aptitude_questions')
+        .select('id')
+        .limit(5);
+        
+      console.log('All questions check (limited):', allQuestionsCheck, allQuestionsCheckError);
+      
       const { data: questionsData, error: questionsError } = await supabase
         .from('aptitude_questions')
         .select('*')
-        .in('id', attempt.question_ids);
+        .in('id', attempt.question_ids || []);
+        
+      console.log('Query result - Data:', questionsData);
+      console.log('Query result - Error:', questionsError);
 
-      if (questionsError) throw questionsError;
+      if (questionsError) {
+        console.error('Error fetching aptitude questions from database:', questionsError);
+        throw questionsError;
+      }
 
+      // Log if no questions were found
+      if (!questionsData || questionsData.length === 0) {
+        console.warn('No aptitude questions found for attempt:', attempt);
+        
+        // Let's also check what questions exist in the database
+        const { data: allQuestions, error: allQuestionsError } = await supabase
+          .from('aptitude_questions')
+          .select('id');
+          
+        if (allQuestionsError) {
+          console.error('Error fetching all questions for debugging:', allQuestionsError);
+        } else {
+          console.log('All questions in database:', allQuestions);
+          console.log('Number of questions in database:', allQuestions?.length);
+        }
+        
+        // Check if any of the question IDs exist
+        const existingQuestionIds = allQuestions?.map(q => q.id) || [];
+        const missingIds = (attempt.question_ids || []).filter(id => !existingQuestionIds.includes(id));
+        console.log('Missing question IDs:', missingIds);
+      }
+
+      // Log raw data for debugging
+      console.log('Raw questions data from database:', questionsData);
+      console.log('Attempt question IDs:', attempt.question_ids);
+      
       // Transform the data to match our interface and randomize the order
       let questions = (questionsData || [])
         .sort((a, b) => {
-          const aIndex = attempt.question_ids.indexOf(a.id);
-          const bIndex = attempt.question_ids.indexOf(b.id);
+          const aIndex = (attempt.question_ids || []).indexOf(a.id);
+          const bIndex = (attempt.question_ids || []).indexOf(b.id);
           return aIndex - bIndex;
         })
         .map((q: any) => ({
@@ -159,14 +228,47 @@ export const assessmentService = {
           attempt_id: attempt.id
         }));
 
+      console.log('Mapped questions before randomization:', questions);
+      
+      // Check if we got any questions
+      if (questions.length === 0) {
+        console.warn('No questions found for the attempt. This might be due to a mismatch between attempt question IDs and database question IDs.');
+        // Try to get all questions as a fallback
+        const { data: allQuestions, error: allQuestionsError } = await supabase
+          .from('aptitude_questions')
+          .select('*')
+          .limit(15);
+          
+        if (allQuestionsError) {
+          console.error('Error fetching fallback questions:', allQuestionsError);
+        } else if (allQuestions && allQuestions.length > 0) {
+          console.log('Using fallback questions:', allQuestions);
+          questions = allQuestions.map((q: any) => ({
+            id: q.id,
+            question: q.question,
+            options: q.options as string | string[] | null,
+            correct_answer: q.correct_answer,
+            category: q.category,
+            difficulty_level: q.difficulty_level,
+            type: q.type || 'multiple_choice',
+            attempt_id: attempt.id
+          }));
+        }
+      }
+      
       // Randomize the order of questions and limit to 15
       questions = questions
         .sort(() => Math.random() - 0.5) // Shuffle the questions
         .slice(0, 15); // Limit to 15 questions
 
+      console.log('Final questions after randomization:', questions);
       return questions;
     } catch (error) {
       console.error('Error in getAptitudeQuestions:', error);
+      // Provide a more user-friendly error message
+      if (error.message && error.message.includes('function')) {
+        throw new Error('Unable to load assessment questions. Please contact support if this issue persists.');
+      }
       throw error;
     }
   },

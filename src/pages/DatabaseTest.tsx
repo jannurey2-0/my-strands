@@ -1,266 +1,136 @@
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Database } from "@/integrations/supabase/types";
-
-type Profile = Database['public']['Tables']['profiles']['Insert'];
 
 const DatabaseTest = () => {
   const { user, profile } = useAuth();
   const [testResults, setTestResults] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const testDatabaseConnection = async () => {
+  const runTest = async () => {
     setLoading(true);
     try {
-      // Test 1: Check if we can access the profiles table
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .limit(1);
-
-      console.log("Profiles table test:", { profilesData, profilesError });
-
-      // Test 2: Check if assessment_responses table exists
-      const { data: assessmentTableData, error: assessmentTableError } = await supabase
-        .from('assessment_responses')
-        .select('*')
-        .limit(1);
-
-      console.log("Assessment responses table test:", { assessmentTableData, assessmentTableError });
-
-      // Test 3: Check table structure
-      const { data: tableInfo, error: tableInfoError } = await supabase
-        .from('assessment_responses')
-        .select('id, student_id, basic_info, academic_profile, personal_interests, hobbies, aptitude_answers, submitted_at, updated_at')
-        .limit(1);
-
-      console.log("Table structure test:", { tableInfo, tableInfoError });
-
-      // Test 4: Check RLS policies
-      const { data: rlsTest, error: rlsError } = await supabase
-        .from('assessment_responses')
-        .select('student_id')
-        .limit(1);
-
-      console.log("RLS test:", { rlsTest, rlsError });
-
-      setTestResults({
-        profiles: { data: profilesData, error: profilesError },
-        assessmentTable: { data: assessmentTableData, error: assessmentTableError },
-        tableStructure: { data: tableInfo, error: tableInfoError },
-        rlsTest: { data: rlsTest, rlsError }
-      });
-    } catch (error) {
-      console.error("Database test error:", error);
-      setTestResults({ error });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const testInsert = async () => {
-    if (!user || !profile) {
-      setTestResults({ error: "User not authenticated" });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log("Testing insert with profile:", profile);
-
-      // Test insert with minimal data
-      const testData = {
-        student_id: profile.id,
-        basic_info: { fullName: "Test User", age: "25", gender: "male", school: "Test School", region: "Test Region", email: "test@example.com" },
-        academic_profile: { gwa: "1.5", favoriteSubject: "Math", leastFavoriteSubject: "Science" },
-        personal_interests: ["Science", "Technology"],
-        hobbies: ["Reading", "Sports"],
-        aptitude_answers: { 1: 0, 2: 1 }
-      };
-
-      console.log("Insert test data:", testData);
-
-      // First, check if the profile exists
-      const { data: profileCheck, error: profileCheckError } = await supabase
-        .from('profiles')
-        .select('id, user_id')
-        .eq('id', profile.id)
-        .single();
-
-      console.log("Profile check:", { profileCheck, profileCheckError });
-
-      const { data, error } = await supabase
-        .from('assessment_responses')
-        .insert(testData)
-        .select();
-
-      console.log("Insert result:", { data, error });
-
-      setTestResults({
-        profileCheck: { data: profileCheck, error: profileCheckError },
-        insert: { data, error }
-      });
-    } catch (error: any) {
-      console.error("Insert test error:", error);
-      setTestResults({ insert: { error: error.message } });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const testAuthInfo = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: session } = await supabase.auth.getSession();
+      console.log("Testing database access...");
       
-      console.log("Auth info:", { user, session });
+      // Test 1: Check user profile and role
+      console.log("User profile:", profile);
       
-      setTestResults({
-        authInfo: { user, session }
-      });
-    } catch (error) {
-      console.error("Auth info error:", error);
-      setTestResults({ authInfo: { error } });
-    }
-  };
-
-  // New test function to specifically check for user profile
-  const testUserProfile = async () => {
-    if (!user) {
-      setTestResults({ error: "User not authenticated" });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log("Checking profile for user ID:", user.id);
-
-      // Try to find profile by user_id
-      const { data: profileByUserId, error: userIdError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      console.log("Profile by user_id:", { profileByUserId, userIdError });
-
-      // Try to find profile by email
-      const { data: profileByEmail, error: emailError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', user.email)
-        .maybeSingle();
-
-      console.log("Profile by email:", { profileByEmail, emailError });
-
-      // Check if any profiles exist at all
-      const { data: allProfiles, error: allProfilesError } = await supabase
-        .from('profiles')
+      // Test 2: Check if we can access aptitude questions
+      const { data: questions, error: questionsError } = await supabase
+        .from('aptitude_questions')
         .select('*')
         .limit(5);
-
-      console.log("All profiles:", { allProfiles, allProfilesError });
-
-      setTestResults({
-        profileByUserId: { data: profileByUserId, error: userIdError },
-        profileByEmail: { data: profileByEmail, error: emailError },
-        allProfiles: { data: allProfiles, error: allProfilesError }
-      });
+        
+      console.log("Questions test:", { questions, questionsError });
+      
+      // Test 3: Try to call the assessment attempt function
+      if (profile?.id) {
+        console.log("Attempting to call get_or_create_assessment_attempt with p_student_id:", profile.id);
+        const { data: attemptId, error: attemptError } = await (supabase as any)
+          .rpc('get_or_create_assessment_attempt', { 
+            p_student_id: profile.id  // Changed from student_id to p_student_id
+          })
+          .single();
+          
+        console.log("Attempt function test:", { attemptId, attemptError });
+        
+        // If we got an attempt ID, fetch the complete attempt data
+        let attemptData = null;
+        let attemptQuestions = null;
+        let attemptQuestionsError = null;
+        
+        if (attemptId && !attemptError) {
+          // Fetch the complete attempt data using raw SQL
+          const { data: fullAttemptData, error: fetchError } = await (supabase as any)
+            .from('assessment_attempts')
+            .select('*')
+            .eq('id', attemptId)
+            .single();
+            
+          if (fetchError) {
+            console.error("Error fetching attempt data:", fetchError);
+          } else {
+            attemptData = fullAttemptData;
+            console.log("Full attempt data:", attemptData);
+            
+            // If we got the attempt data, try to fetch its questions
+            if (attemptData.question_ids && attemptData.question_ids.length > 0) {
+              const { data: questions, error: questionsError } = await supabase
+                .from('aptitude_questions')
+                .select('*')
+                .in('id', attemptData.question_ids);
+                
+              attemptQuestions = questions;
+              attemptQuestionsError = questionsError;
+              
+              console.log("Attempt questions test:", { attemptQuestions, attemptQuestionsError });
+            }
+          }
+        }
+        
+        setTestResults({
+          userProfile: profile,
+          questionsTest: { questions, questionsError },
+          attemptFunctionTest: { attemptId, attemptError },
+          attemptData: attemptData,
+          attemptQuestions: { attemptQuestions, attemptQuestionsError }
+        });
+      } else {
+        setTestResults({
+          userProfile: profile,
+          questionsTest: { questions, questionsError },
+          error: "No user profile found. Please make sure you're logged in as a student."
+        });
+      }
     } catch (error) {
-      console.error("User profile test error:", error);
-      setTestResults({ userProfileTest: { error } });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // New function to manually create a profile if it doesn't exist
-  const createProfile = async () => {
-    if (!user) {
-      setTestResults({ error: "User not authenticated" });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log("Creating profile for user:", user);
-
-      const newProfile: Profile = {
-        user_id: user.id,
-        email: user.email,
-        full_name: user.email.split('@')[0], // Use email prefix as name
-        role: 'student'
-      };
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert(newProfile)
-        .select()
-        .single();
-
-      console.log("Profile creation result:", { data, error });
-
-      setTestResults({
-        profileCreation: { data, error }
-      });
-
-      // Refresh auth state after profile creation
-      window.location.reload();
-    } catch (error) {
-      console.error("Profile creation error:", error);
-      setTestResults({ profileCreation: { error } });
+      console.error("Test error:", error);
+      setTestResults({ error: error.message });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Database Connection Test</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+    <div className="container mx-auto py-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Database Access Test</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
             <div>
-              <h3 className="font-medium">Authentication Status:</h3>
-              <p>User: {user ? user.email : "Not logged in"}</p>
-              <p>Profile: {profile ? `${profile.full_name} (${profile.id})` : "No profile"}</p>
-              <p>User ID: {user ? user.id : "N/A"}</p>
+              <p>User: {user?.email || "Not logged in"}</p>
+              <p>Profile Role: {profile?.role || "No profile"}</p>
             </div>
-
-            <div className="flex gap-4 flex-wrap">
-              <Button onClick={testDatabaseConnection} disabled={loading}>
-                {loading ? "Testing..." : "Test Database Connection"}
-              </Button>
-              <Button onClick={testInsert} disabled={loading || !user}>
-                {loading ? "Testing Insert..." : "Test Insert"}
-              </Button>
-              <Button onClick={testAuthInfo} disabled={loading}>
-                {loading ? "Getting Auth Info..." : "Get Auth Info"}
-              </Button>
-              <Button onClick={testUserProfile} disabled={loading || !user}>
-                {loading ? "Checking User Profile..." : "Check User Profile"}
-              </Button>
-              <Button onClick={createProfile} disabled={loading || !user} variant="destructive">
-                {loading ? "Creating Profile..." : "Create Profile"}
-              </Button>
-            </div>
-
+            
+            <Button onClick={runTest} disabled={loading || !user}>
+              {loading ? "Running Tests..." : "Run Database Tests"}
+            </Button>
+            
             {testResults && (
-              <div className="p-4 rounded bg-muted">
-                <h3 className="font-medium mb-2">Test Results:</h3>
-                <pre className="text-sm overflow-auto max-h-96">
+              <div className="mt-4 p-4 bg-muted rounded">
+                <h3 className="font-bold mb-2">Test Results:</h3>
+                <pre className="text-sm overflow-auto">
                   {JSON.stringify(testResults, null, 2)}
                 </pre>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+            
+            <div className="mt-4 p-4 bg-info rounded">
+              <h3 className="font-bold mb-2">Troubleshooting:</h3>
+              <p>If you're still getting errors:</p>
+              <ol className="list-decimal list-inside mt-2 space-y-1">
+                <li>Make sure you're logged in as a student</li>
+                <li>Check that the database migrations have been applied</li>
+                <li>Verify that there are aptitude questions in the database</li>
+                <li>Check the browser console for detailed error messages</li>
+              </ol>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
