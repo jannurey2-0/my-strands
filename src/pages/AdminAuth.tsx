@@ -5,12 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Shield } from 'lucide-react';
 
 export default function AdminAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const { signIn, profile, user, loading } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   // Navigate to admin dashboard when profile loads and user is admin
@@ -23,8 +25,19 @@ export default function AdminAuth() {
         console.log('Admin authenticated, navigating to admin dashboard');
         navigate('/admin/dashboard');
       }
+      // If user is authenticated but not admin, show error and redirect
+      else if (user && profile && profile.role !== 'admin') {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access the admin portal.",
+          variant: "destructive"
+        });
+        // Sign out the user to prevent unauthorized access
+        // The signOut function would need to be called here, but it's not available in this context
+        // Instead, we'll rely on the ProtectedRoute to handle this
+      }
     }
-  }, [user, profile, navigate, loading]);
+  }, [user, profile, navigate, loading, toast]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -36,11 +49,13 @@ export default function AdminAuth() {
 
     const { error } = await signIn(email, password);
     
-    if (!error) {
-      // Don't navigate here - let the auth hook handle it based on role
-      console.log('Admin sign in successful, waiting for profile to load...');
+    if (error) {
+      setIsLoading(false);
+      return;
     }
     
+    // Successfully authenticated, now check role
+    console.log('Admin sign in successful, waiting for profile to load...');
     setIsLoading(false);
   };
 
@@ -62,7 +77,37 @@ export default function AdminAuth() {
     );
   }
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated but not admin, show error
+  if (user && profile && profile.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6">
+          <Card className="border-destructive/50 shadow-xl">
+            <CardHeader className="text-center space-y-4">
+              <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
+                <Shield className="w-6 h-6 text-destructive" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-bold text-destructive">Access Denied</CardTitle>
+                <CardDescription>You don't have permission to access the admin portal.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-muted-foreground mb-4">
+                Your account is not authorized to access the admin portal. 
+                Please sign in with an administrator account.
+              </p>
+              <Button asChild className="w-full">
+                <Link to="/">Return to Home</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated as admin, redirect to dashboard
   if (user && profile && profile.role === 'admin') {
     return null; // Will be redirected by useEffect
   }

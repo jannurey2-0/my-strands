@@ -14,6 +14,7 @@ import {
   Settings
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -23,10 +24,25 @@ interface AdminLayoutProps {
 
 export const AdminLayout = ({ children, activeSection, setActiveSection }: AdminLayoutProps) => {
   const { profile, signOut, user, session } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Validate that the user is an admin
+  useEffect(() => {
+    if (user && profile && profile.role !== 'admin') {
+      // User is authenticated but not an admin
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to access the admin panel.",
+        variant: "destructive"
+      });
+      // Redirect to appropriate login page
+      navigate('/admin/login', { replace: true });
+    }
+  }, [user, profile, navigate, toast]);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -41,6 +57,11 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // If user is authenticated but not admin, don't render the layout
+  if (user && profile && profile.role !== 'admin') {
+    return null; // Will be redirected by useEffect
+  }
 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

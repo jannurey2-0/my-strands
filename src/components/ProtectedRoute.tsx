@@ -120,14 +120,19 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     return <Navigate to="/student/login" replace />;
   }
 
-  // If a role is required but profile is not loaded yet, allow access temporarily
-  // This prevents blocking access while profile is loading
-  if (requiredRole && !profile) {
-    console.log('Role required but profile not loaded yet, allowing temporary access');
-    // Show a warning if there was a profile error
-    if (profileError) {
-      console.warn('Allowing access despite profile loading error');
-    }
+  // If a role is required but profile is not loaded yet, show loading state
+  // This prevents granting temporary access while profile is loading
+  if (requiredRole && !profile && user) {
+    console.log('Role required but profile not loaded yet, waiting for profile to load');
+    // Show loading while we wait for profile to load
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Loading profile...</span>
+        </div>
+      </div>
+    );
   }
 
   console.log('Access granted for:', { role: profile?.role, requiredRole });
