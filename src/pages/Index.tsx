@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,15 +31,25 @@ import {
 } from "lucide-react";
 import heroStudents from "@/assets/hero-students.jpg";
 import { motion } from "framer-motion";
+import useEmblaCarousel from 'embla-carousel-react';
 
 const Index = () => {
   const { toast } = useToast();
   const location = useLocation();
   const [isVisible, setIsVisible] = useState(false);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
 
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  const scrollPrev = useCallback(() => {
+    if (emblaApi) emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const scrollNext = useCallback(() => {
+    if (emblaApi) emblaApi.scrollNext();
+  }, [emblaApi]);
 
   const features = [
     {
@@ -452,7 +462,41 @@ const Index = () => {
             transition={{ duration: 0.5 }}
           >
             <h3 className="text-2xl font-bold mb-8">Our Team</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Carousel for mobile view */}
+            <div className="md:hidden relative">
+              <div className="overflow-hidden" ref={emblaRef}>
+                <div className="flex gap-4 p-4">
+                  {teamMembers.map((member, index) => (
+                    <div key={index} className="flex-none w-4/5">
+                      <Card className="text-center p-6 hover:shadow-xl transition-all duration-300 border-primary/10 min-h-[250px]">
+                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-primary/10 to-secondary/10 rounded-full flex items-center justify-center mb-4 text-primary">
+                          {member.icon}
+                        </div>
+                        <CardTitle className="text-lg mb-2">{member.name}</CardTitle>
+                        <CardDescription className="mb-3">{member.role}</CardDescription>
+                        <p className="text-sm text-muted-foreground">{member.bio}</p>
+                      </Card>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button 
+                className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 rounded-full p-2 shadow-md hover:bg-white transition-colors"
+                onClick={scrollPrev}
+              >
+                <ArrowRight className="h-5 w-5 rotate-180" />
+              </button>
+              <button 
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 rounded-full p-2 shadow-md hover:bg-white transition-colors"
+                onClick={scrollNext}
+              >
+                <ArrowRight className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {/* Grid for desktop view */}
+            <div className="hidden md:grid md:grid-cols-3 gap-6">
               {teamMembers.map((member, index) => (
                 <motion.div
                   key={index}
