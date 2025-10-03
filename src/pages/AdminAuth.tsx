@@ -11,7 +11,7 @@ import { ArrowLeft, Shield } from 'lucide-react';
 export default function AdminAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const { signIn, profile, user, loading } = useAuth();
+  const { signIn, signOut, profile, user, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -32,12 +32,13 @@ export default function AdminAuth() {
           description: "You don't have permission to access the admin portal.",
           variant: "destructive"
         });
-        // Sign out the user to prevent unauthorized access
-        // The signOut function would need to be called here, but it's not available in this context
-        // Instead, we'll rely on the ProtectedRoute to handle this
+        // Sign out the user immediately to prevent unauthorized access
+        signOut().then(() => {
+          navigate('/', { replace: true });
+        });
       }
     }
-  }, [user, profile, navigate, loading, toast]);
+  }, [user, profile, navigate, loading, toast, signOut]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -97,8 +98,14 @@ export default function AdminAuth() {
                 Your account is not authorized to access the admin portal. 
                 Please sign in with an administrator account.
               </p>
-              <Button asChild className="w-full">
-                <Link to="/">Return to Home</Link>
+              <Button 
+                onClick={async () => {
+                  await signOut();
+                  navigate('/');
+                }} 
+                className="w-full"
+              >
+                Return to Home
               </Button>
             </CardContent>
           </Card>

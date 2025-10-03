@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 import { 
   LayoutDashboard, 
   Users, 
@@ -11,7 +13,8 @@ import {
   X,
   User,
   ChevronDown,
-  Settings
+  Settings,
+  Shield
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -39,10 +42,12 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
         description: "You don't have permission to access the admin panel.",
         variant: "destructive"
       });
-      // Redirect to appropriate login page
-      navigate('/admin/login', { replace: true });
+      // Sign out the user and redirect to home page
+      signOut().then(() => {
+        navigate('/', { replace: true });
+      });
     }
-  }, [user, profile, navigate, toast]);
+  }, [user, profile, navigate, toast, signOut]);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -60,7 +65,32 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
 
   // If user is authenticated but not admin, don't render the layout
   if (user && profile && profile.role !== 'admin') {
-    return null; // Will be redirected by useEffect
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6">
+          <Card className="border-destructive/50 shadow-xl">
+            <CardHeader className="text-center space-y-4">
+              <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
+                <Shield className="w-6 h-6 text-destructive" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-bold text-destructive">Access Denied</CardTitle>
+                <CardDescription>You don't have permission to access the admin panel.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-muted-foreground mb-4">
+                Your account is not authorized to access the admin panel. 
+                You are being redirected to the home page.
+              </p>
+              <div className="flex justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   const navigationItems = [

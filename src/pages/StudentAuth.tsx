@@ -6,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, GraduationCap, Eye, EyeOff } from 'lucide-react';
 
 export default function StudentAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const { signUp, signIn, profile, user, loading } = useAuth();
+  const { signUp, signIn, signOut, profile, user, loading } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   // Navigate to student dashboard when profile loads and user is student
@@ -23,8 +25,20 @@ export default function StudentAuth() {
       if (user && profile && profile.role === 'student') {
         navigate('/dashboard');
       }
+      // If user is authenticated but not student, show error and redirect
+      else if (user && profile && profile.role !== 'student') {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access the student portal.",
+          variant: "destructive"
+        });
+        // Sign out the user immediately to prevent unauthorized access
+        signOut().then(() => {
+          navigate('/', { replace: true });
+        });
+      }
     }
-  }, [user, profile, navigate, loading]);
+  }, [user, profile, navigate, loading, toast, signOut]);
 
   const [formError, setFormError] = useState('');
   const [nameError, setNameError] = useState('');
@@ -92,7 +106,43 @@ export default function StudentAuth() {
     );
   }
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated but not student, show error
+  if (user && profile && profile.role !== 'student') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4 pt-header">
+        <div className="w-full max-w-md space-y-6">
+          <Card className="border-destructive/50 shadow-xl">
+            <CardHeader className="text-center space-y-4">
+              <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
+                <GraduationCap className="w-6 h-6 text-destructive" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-bold text-destructive">Access Denied</CardTitle>
+                <CardDescription>You don't have permission to access the student portal.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-muted-foreground mb-4">
+                Your account is not authorized to access the student portal. 
+                You are being redirected to the home page.
+              </p>
+              <Button 
+                onClick={async () => {
+                  await signOut();
+                  navigate('/');
+                }} 
+                className="w-full"
+              >
+                Return to Home
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated as student, redirect to dashboard
   if (user && profile && profile.role === 'student') {
     return null; // Will be redirected by useEffect
   }
