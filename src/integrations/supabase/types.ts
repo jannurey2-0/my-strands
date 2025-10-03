@@ -169,6 +169,8 @@ export type Database = {
           id: string
           map_link: string | null
           name: string
+          school_id: string | null
+          category: string | null
           strands: Json
           updated_at: string
         }
@@ -180,6 +182,8 @@ export type Database = {
           id?: string
           map_link?: string | null
           name: string
+          school_id?: string | null
+          category?: string | null
           strands?: Json
           updated_at?: string
         }
@@ -191,6 +195,8 @@ export type Database = {
           id?: string
           map_link?: string | null
           name?: string
+          school_id?: string | null
+          category?: string | null
           strands?: Json
           updated_at?: string
         }

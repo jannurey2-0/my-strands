@@ -39,6 +39,8 @@ export const SchoolsManagement = () => {
     address: "",
     contact_email: "",
     contact_phone: "",
+    school_id: "",
+    category: "",
     strands: [] as string[],
   });
 
@@ -92,6 +94,14 @@ export const SchoolsManagement = () => {
     }));
   };
 
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleAddStrand = () => {
     if (strandInput.trim() && !formData.strands.includes(strandInput.trim())) {
       setFormData(prev => ({
@@ -115,6 +125,8 @@ export const SchoolsManagement = () => {
       address: "",
       contact_email: "",
       contact_phone: "",
+      school_id: "",
+      category: "",
       strands: [],
     });
     setStrandInput("");
@@ -177,6 +189,8 @@ export const SchoolsManagement = () => {
       address: school.address || "",
       contact_email: school.contact_email || "",
       contact_phone: school.contact_phone || "",
+      school_id: (school as any).school_id || "",
+      category: (school as any).category || "",
       strands: Array.isArray(school.strands) 
         ? school.strands.map(s => String(s)) 
         : [],
@@ -283,6 +297,33 @@ export const SchoolsManagement = () => {
               </div>
               
               <div className="space-y-2">
+                <Label htmlFor="school_id">School ID</Label>
+                <Input
+                  id="school_id"
+                  name="school_id"
+                  value={formData.school_id}
+                  onChange={handleInputChange}
+                  placeholder="Enter school ID"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <select
+                  id="category"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleSelectChange}
+                  className="w-full p-2 border rounded-md bg-background"
+                >
+                  <option value="">Select a category</option>
+                  <option value="Small">Small</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Large">Large</option>
+                </select>
+              </div>
+              
+              <div className="space-y-2">
                 <Label>Strands</Label>
                 <div className="flex gap-2">
                   <Input
@@ -337,6 +378,8 @@ export const SchoolsManagement = () => {
           <TableHeader>
             <TableRow>
               <TableHead>School Name</TableHead>
+              <TableHead>School ID</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Address</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Strands</TableHead>
@@ -347,6 +390,8 @@ export const SchoolsManagement = () => {
             {schools.map((school) => (
               <TableRow key={school.id}>
                 <TableCell className="font-medium">{school.name}</TableCell>
+                <TableCell>{(school as any).school_id || "N/A"}</TableCell>
+                <TableCell>{(school as any).category || "N/A"}</TableCell>
                 <TableCell>{school.address || "N/A"}</TableCell>
                 <TableCell>
                   <div className="space-y-1">
