@@ -25,6 +25,7 @@ import TestAssessment from "./pages/TestAssessment";
 import DatabaseTest from "./pages/DatabaseTest";
 import AuthDebug from "./pages/AuthDebug";
 import Profile from "./pages/Profile";
+import AdminProfile from "./pages/AdminProfile";
 import AuthCallback from "./pages/AuthCallback";
 import { ScrollToTopOnNavigate } from "./components/ScrollToTopOnNavigate";
 
@@ -112,6 +113,16 @@ const AppContent = () => (
             <ErrorBoundary>
               <ProtectedRoute requiredRole="admin">
                 <AdminDashboard />
+              </ProtectedRoute>
+            </ErrorBoundary>
+          } 
+        />
+        <Route 
+          path="/admin/profile" 
+          element={
+            <ErrorBoundary>
+              <ProtectedRoute requiredRole="admin">
+                <AdminProfile />
               </ProtectedRoute>
             </ErrorBoundary>
           } 

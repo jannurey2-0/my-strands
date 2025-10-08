@@ -245,6 +245,17 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start px-4 py-2"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      navigate('/admin/profile');
+                    }}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start px-4 py-2"
                     onClick={handleSignOut}
                   >
                     <LogOut className="h-4 w-4 mr-2" />
