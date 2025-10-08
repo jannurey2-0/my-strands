@@ -2,6 +2,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { TablesInsert, Tables } from '@/integrations/supabase/types';
+import logger from '@/lib/logger';
 
 // Add AssessmentAttempt interface
 interface AssessmentAttempt {
@@ -54,7 +55,7 @@ export const assessmentService = {
       if (error) throw error;
       return { success: true, data: result };
     } catch (error) {
-      console.error('Error in submitAssessment:', error);
+      logger.error('Error in submitAssessment:', error);
       throw error;
     }
   },
@@ -71,7 +72,7 @@ export const assessmentService = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error in getStudentAssessments:', error);
+      logger.error('Error in getStudentAssessments:', error);
       throw error;
     }
   },
@@ -87,7 +88,7 @@ export const assessmentService = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error in getAllAssessments:', error);
+      logger.error('Error in getAllAssessments:', error);
       throw error;
     }
   },
@@ -103,7 +104,7 @@ export const assessmentService = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error in getAllSchools:', error);
+      logger.error('Error in getAllSchools:', error);
       throw error;
     }
   },
@@ -122,7 +123,7 @@ export const assessmentService = {
       if (!profileData) throw new Error('User profile not found');
 
       // Now get or create an assessment attempt using the profile ID
-      console.log('Calling get_or_create_assessment_attempt with profile ID:', profileData.id);
+      logger.debug('Calling get_or_create_assessment_attempt with profile ID:', { profileId: profileData.id });
       const { data: attemptData, error: attemptError } = await (supabase as any)
         .rpc('get_or_create_assessment_attempt', { 
           p_student_id: profileData.id  // Changed from student_id to p_student_id
@@ -130,7 +131,7 @@ export const assessmentService = {
         .single();
   
       if (attemptError) {
-        console.error('Error calling get_or_create_assessment_attempt:', attemptError);
+        logger.error('Error calling get_or_create_assessment_attempt:', attemptError);
         // Provide more detailed error information
         if (attemptError.code === 'PGRST202') {
           throw new Error(`Database function not found. This usually means the database migrations haven't been applied correctly. Details: ${attemptError.message}`);
@@ -139,7 +140,7 @@ export const assessmentService = {
       }
       if (!attemptData) throw new Error('Failed to create assessment attempt');
       
-      console.log('Assessment attempt ID:', attemptData);
+      logger.debug('Assessment attempt ID:', { attemptId: attemptData });
   
       // Now fetch the complete attempt data
       const { data: fullAttemptData, error: fetchError } = await (supabase as any)
@@ -154,13 +155,13 @@ export const assessmentService = {
       const attempt = fullAttemptData as unknown as AssessmentAttempt;
   
       // Log the attempt details for debugging
-      console.log('Fetching questions for attempt:', attempt);
-      console.log('Question IDs to fetch:', attempt.question_ids);
+      logger.debug('Fetching questions for attempt:', { attempt });
+      logger.debug('Question IDs to fetch:', { questionIds: attempt.question_ids });
 
       // Get the questions for this attempt
-      console.log('Question IDs to fetch (before query):', attempt.question_ids);
+      logger.debug('Question IDs to fetch (before query):', { questionIds: attempt.question_ids });
       if (attempt.question_ids && attempt.question_ids.length > 0) {
-        console.log('Question IDs type:', typeof attempt.question_ids[0]);
+        logger.debug('Question IDs type:', { type: typeof attempt.question_ids[0] });
       }
       
       // First, let's check what questions exist in the database without RLS
@@ -169,24 +170,24 @@ export const assessmentService = {
         .select('id')
         .limit(5);
         
-      console.log('All questions check (limited):', allQuestionsCheck, allQuestionsCheckError);
+      logger.debug('All questions check (limited):', { data: allQuestionsCheck, error: allQuestionsCheckError });
       
       const { data: questionsData, error: questionsError } = await supabase
         .from('aptitude_questions')
         .select('*')
         .in('id', attempt.question_ids || []);
         
-      console.log('Query result - Data:', questionsData);
-      console.log('Query result - Error:', questionsError);
+      logger.debug('Query result - Data:', { data: questionsData });
+      logger.debug('Query result - Error:', { error: questionsError });
 
       if (questionsError) {
-        console.error('Error fetching aptitude questions from database:', questionsError);
+        logger.error('Error fetching aptitude questions from database:', questionsError);
         throw questionsError;
       }
 
       // Log if no questions were found
       if (!questionsData || questionsData.length === 0) {
-        console.warn('No aptitude questions found for attempt:', attempt);
+        logger.warn('No aptitude questions found for attempt:', { attempt });
         
         // Let's also check what questions exist in the database
         const { data: allQuestions, error: allQuestionsError } = await supabase
@@ -194,21 +195,23 @@ export const assessmentService = {
           .select('id');
           
         if (allQuestionsError) {
-          console.error('Error fetching all questions for debugging:', allQuestionsError);
+          logger.error('Error fetching all questions for debugging:', allQuestionsError);
         } else {
-          console.log('All questions in database:', allQuestions);
-          console.log('Number of questions in database:', allQuestions?.length);
+          logger.debug('All questions in database:', { 
+            questions: allQuestions, 
+            count: allQuestions?.length 
+          });
         }
         
         // Check if any of the question IDs exist
         const existingQuestionIds = allQuestions?.map(q => q.id) || [];
         const missingIds = (attempt.question_ids || []).filter(id => !existingQuestionIds.includes(id));
-        console.log('Missing question IDs:', missingIds);
+        logger.debug('Missing question IDs:', { missingIds });
       }
 
       // Log raw data for debugging
-      console.log('Raw questions data from database:', questionsData);
-      console.log('Attempt question IDs:', attempt.question_ids);
+      logger.debug('Raw questions data from database:', { questionsData });
+      logger.debug('Attempt question IDs:', { questionIds: attempt.question_ids });
       
       // Transform the data to match our interface and randomize the order
       let questions = (questionsData || [])
@@ -228,11 +231,11 @@ export const assessmentService = {
           attempt_id: attempt.id
         }));
 
-      console.log('Mapped questions before randomization:', questions);
+      logger.debug('Mapped questions before randomization:', { questions });
       
       // Check if we got any questions
       if (questions.length === 0) {
-        console.warn('No questions found for the attempt. This might be due to a mismatch between attempt question IDs and database question IDs.');
+        logger.warn('No questions found for the attempt. This might be due to a mismatch between attempt question IDs and database question IDs.');
         // Try to get all questions as a fallback
         const { data: allQuestions, error: allQuestionsError } = await supabase
           .from('aptitude_questions')
@@ -240,9 +243,9 @@ export const assessmentService = {
           .limit(15);
           
         if (allQuestionsError) {
-          console.error('Error fetching fallback questions:', allQuestionsError);
+          logger.error('Error fetching fallback questions:', allQuestionsError);
         } else if (allQuestions && allQuestions.length > 0) {
-          console.log('Using fallback questions:', allQuestions);
+          logger.debug('Using fallback questions:', { questions: allQuestions });
           questions = allQuestions.map((q: any) => ({
             id: q.id,
             question: q.question,
@@ -261,10 +264,10 @@ export const assessmentService = {
         .sort(() => Math.random() - 0.5) // Shuffle the questions
         .slice(0, 15); // Limit to 15 questions
 
-      console.log('Final questions after randomization:', questions);
+      logger.debug('Final questions after randomization:', { questions });
       return questions;
     } catch (error) {
-      console.error('Error in getAptitudeQuestions:', error);
+      logger.error('Error in getAptitudeQuestions:', error);
       // Provide a more user-friendly error message
       if (error.message && error.message.includes('function')) {
         throw new Error('Unable to load assessment questions. Please contact support if this issue persists.');
@@ -289,7 +292,7 @@ export const assessmentService = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error in completeAssessmentAttempt:', error);
+      logger.error('Error in completeAssessmentAttempt:', error);
       throw error;
     }
   },
@@ -304,7 +307,7 @@ export const assessmentService = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error in getSystemSettings:', error);
+      logger.error('Error in getSystemSettings:', error);
       throw error;
     }
   },
@@ -325,7 +328,7 @@ export const assessmentService = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error in updateSystemSetting:', error);
+      logger.error('Error in updateSystemSetting:', error);
       throw error;
     }
   },
@@ -340,7 +343,7 @@ export const assessmentService = {
         .single();
 
       if (error) {
-        console.error('Error checking page maintenance status:', error);
+        logger.error('Error checking page maintenance status:', error);
         return { isUnderMaintenance: false, maintenanceMessage: 'Currently Under Development' };
       }
 
@@ -349,7 +352,7 @@ export const assessmentService = {
         maintenanceMessage: data?.maintenance_message || 'Currently Under Development'
       };
     } catch (error) {
-      console.error('Error in isPageUnderMaintenance:', error);
+      logger.error('Error in isPageUnderMaintenance:', error);
       return { isUnderMaintenance: false, maintenanceMessage: 'Currently Under Development' };
     }
   }

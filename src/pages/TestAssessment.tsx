@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import logger from '@/lib/logger';
 
 const TestAssessment = () => {
   const { user, profile } = useAuth();
@@ -12,7 +13,7 @@ const TestAssessment = () => {
   const testTableAccess = async () => {
     setLoading(true);
     try {
-      console.log("Testing table access...");
+      logger.debug("Testing table access...");
       
       // Test 1: Check if table exists by querying it
       const { data, error } = await supabase
@@ -20,7 +21,7 @@ const TestAssessment = () => {
         .select('id')
         .limit(1);
 
-      console.log("Table query result:", { data, error });
+      logger.debug("Table query result:", { data, error });
       
       if (error) {
         setTestResult({
@@ -37,7 +38,7 @@ const TestAssessment = () => {
         });
       }
     } catch (error: any) {
-      console.error("Test error:", error);
+      logger.error("Test error:", error);
       setTestResult({
         success: false,
         message: "Unexpected error occurred",
@@ -59,7 +60,7 @@ const TestAssessment = () => {
 
     setLoading(true);
     try {
-      console.log("Testing insert operation...");
+      logger.debug("Testing insert operation...");
       
       // Test insert with minimal data
       const { data, error } = await supabase
@@ -74,7 +75,7 @@ const TestAssessment = () => {
         })
         .select();
 
-      console.log("Insert result:", { data, error });
+      logger.debug("Insert result:", { data, error });
       
       if (error) {
         setTestResult({
@@ -91,7 +92,7 @@ const TestAssessment = () => {
         });
       }
     } catch (error: any) {
-      console.error("Insert error:", error);
+      logger.error("Insert error:", error);
       setTestResult({
         success: false,
         message: "Unexpected error occurred during insert",
@@ -126,12 +127,28 @@ const TestAssessment = () => {
             </div>
 
             {testResult && (
-              <div className={`p-4 rounded ${testResult.success ? "bg-green-100" : "bg-red-100"}`}>
-                <h3 className="font-medium mb-2">Test Result:</h3>
-                <p>{testResult.message}</p>
-                {testResult.error && <p className="text-sm">Error: {testResult.error}</p>}
-                {testResult.code && <p className="text-sm">Code: {testResult.code}</p>}
-                {testResult.data && <p className="text-sm">Data: {JSON.stringify(testResult.data)}</p>}
+              <div className={`p-4 rounded-lg ${testResult.success ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                <h4 className={`font-medium ${testResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                  {testResult.success ? 'Success' : 'Error'}
+                </h4>
+                <p className={testResult.success ? 'text-green-700' : 'text-red-700'}>
+                  {testResult.message}
+                </p>
+                {testResult.error && (
+                  <p className="text-red-700 mt-2">
+                    <strong>Error:</strong> {testResult.error}
+                  </p>
+                )}
+                {testResult.code && (
+                  <p className="text-gray-600 mt-1">
+                    <strong>Code:</strong> {testResult.code}
+                  </p>
+                )}
+                {testResult.data && (
+                  <p className="text-gray-600 mt-2">
+                    <strong>Data:</strong> {JSON.stringify(testResult.data, null, 2)}
+                  </p>
+                )}
               </div>
             )}
           </CardContent>

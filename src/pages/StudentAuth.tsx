@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, GraduationCap, Eye, EyeOff } from 'lucide-react';
+import logger from '@/lib/logger';
 
 export default function StudentAuth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +65,7 @@ export default function StudentAuth() {
     const { error } = await signUp(email, password, fullName);
     
     if (!error) {
-      console.log('Student sign up successful');
+      logger.safe('Student sign up successful');
     } else {
       setFormError(error.message || 'An error occurred during sign up');
     }
@@ -82,7 +83,7 @@ export default function StudentAuth() {
     const { error } = await signIn(email, password);
     
     if (!error) {
-      console.log('Student sign in successful, waiting for profile to load...');
+      logger.safe('Student sign in successful, waiting for profile to load...');
     }
     
     setIsLoading(false);

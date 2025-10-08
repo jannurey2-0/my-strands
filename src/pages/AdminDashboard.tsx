@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import logger from '@/lib/logger';
 
 interface Stats {
   totalStudents: number;
@@ -268,7 +269,7 @@ export default function AdminDashboard() {
         totalQuestions: questionsCount || 0
       });
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      logger.error('Error fetching stats:', error);
       toast({
         title: "Error",
         description: "Failed to fetch dashboard statistics",
@@ -297,7 +298,7 @@ export default function AdminDashboard() {
       
       setQuestions(typedQuestions);
     } catch (error) {
-      console.error('Error fetching questions:', error);
+      logger.error('Error fetching questions:', error);
       toast({
         title: "Error",
         description: "Failed to fetch questions",

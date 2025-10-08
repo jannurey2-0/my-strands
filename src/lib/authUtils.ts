@@ -1,54 +1,46 @@
-/**
- * Authentication utilities for handling session cleanup and validation
- */
-
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
+import logger from './logger';
 
 /**
- * Clears all authentication related data from storage
+ * Clears all authentication-related data from localStorage
  */
 export const clearAuthStorage = () => {
-  try {
-    // Clear localStorage items related to Supabase auth
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('sb-') || key.includes('supabase')) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    // Clear sessionStorage items related to Supabase auth
-    Object.keys(sessionStorage).forEach(key => {
-      if (key.startsWith('sb-') || key.includes('supabase')) {
-        sessionStorage.removeItem(key);
-      }
-    });
-    
-    console.log('Auth storage cleared');
-  } catch (error) {
-    console.error('Error clearing auth storage:', error);
-  }
+  // Clear all auth-related items from localStorage
+  const keysToRemove = [
+    'supabase.auth.token',
+    'supabase.auth.user', 
+    'supabase.auth.session',
+    // Add any other auth-related keys your app might use
+  ];
+  
+  keysToRemove.forEach(key => {
+    localStorage.removeItem(key);
+  });
+  
+  // Clear all keys that start with 'sb-' (Supabase default prefix)
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  
+  logger.debug('Cleared authentication storage');
 };
 
 /**
- * Validates if the current session is still valid
+ * Validates if a session is still valid
  */
-export const validateSession = async () => {
+export const validateSession = async (session: any) => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('Error getting session:', error);
-      return { isValid: false, error };
-    }
-    
+    // Check if session exists
     if (!session) {
-      console.log('No active session found');
+      logger.debug('No session provided');
       return { isValid: false, session: null };
     }
     
     // Check if session has expired
     if (session.expires_at && session.expires_at * 1000 < Date.now()) {
-      console.log('Session has expired');
+      logger.debug('Session has expired');
       return { isValid: false, session, reason: 'expired' };
     }
     
@@ -56,19 +48,19 @@ export const validateSession = async () => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError) {
-      console.error('Error getting user:', userError);
+      logger.error('Error getting user:', userError);
       return { isValid: false, error: userError };
     }
     
     if (!user) {
-      console.log('No user found for session');
+      logger.debug('No user found for session');
       return { isValid: false, session, reason: 'no_user' };
     }
     
-    console.log('Session is valid', { session, user });
+    logger.debug('Session is valid', { session, user });
     return { isValid: true, session, user };
   } catch (error) {
-    console.error('Error validating session:', error);
+    logger.error('Error validating session:', error);
     return { isValid: false, error };
   }
 };
@@ -78,43 +70,18 @@ export const validateSession = async () => {
  */
 export const refreshSession = async () => {
   try {
-    console.log('Refreshing session...');
+    logger.debug('Refreshing session...');
     const { data, error } = await supabase.auth.refreshSession();
     
     if (error) {
-      console.error('Error refreshing session:', error);
+      logger.error('Error refreshing session:', error);
       return { success: false, error };
     }
     
-    console.log('Session refreshed successfully', data);
+    logger.debug('Session refreshed successfully', data);
     return { success: true, data };
   } catch (error) {
-    console.error('Error during session refresh:', error);
-    return { success: false, error };
-  }
-};
-
-/**
- * Completely logs out the user and clears all auth data
- */
-export const forceLogout = async () => {
-  try {
-    console.log('Forcing logout...');
-    
-    // Sign out from Supabase
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      console.error('Error during sign out:', error);
-    }
-    
-    // Clear all auth storage
-    clearAuthStorage();
-    
-    console.log('Forced logout completed');
-    return { success: true };
-  } catch (error) {
-    console.error('Error during forced logout:', error);
+    logger.error('Error refreshing session:', error);
     return { success: false, error };
   }
 };

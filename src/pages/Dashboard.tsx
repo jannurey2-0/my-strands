@@ -33,6 +33,7 @@ import { Tables } from "@/integrations/supabase/types";
 import { motion } from "framer-motion";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ChartErrorBoundary from "@/components/ChartErrorBoundary";
+import logger from '@/lib/logger';
 
 // Import chart components
 import { Bar, BarChart, Line, LineChart, Pie, PieChart as RechartsPieChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -102,7 +103,7 @@ const Dashboard = () => {
     const personalInterests = assessment.personal_interests as string[];
     const hobbies = assessment.hobbies as string[];
 
-    console.log('Calculating scores with data:', {
+    logger.debug('Calculating scores with data:', {
       basicInfo,
       academicProfile,
       personalInterests,
@@ -298,7 +299,7 @@ const Dashboard = () => {
       scores[strand] = (scores[strand] / totalScore) * 100;
     });
 
-    console.log('Calculated scores:', scores);
+    logger.debug('Calculated scores:', scores);
     return scores;
   };
 
@@ -336,7 +337,7 @@ const Dashboard = () => {
       }
     });
     
-    console.log('Formatted results:', roundedResults);
+    logger.debug('Formatted results:', roundedResults);
     return roundedResults;
   };
 
@@ -353,7 +354,7 @@ const Dashboard = () => {
         
         // Fetch assessment data
         const assessments = await assessmentService.getStudentAssessments(profile.id);
-        console.log('Fetched assessments:', assessments);
+        logger.debug('Fetched assessments:', assessments);
         
         // Update assessment counts
         setCompletedAssessments(assessments.length);
@@ -367,19 +368,19 @@ const Dashboard = () => {
         if (assessments.length > 0) {
           // Get the most recent assessment
           const latestAssessment = assessments[0];
-          console.log('Latest assessment:', latestAssessment);
+          logger.debug('Latest assessment:', latestAssessment);
           
           // Log the academic profile to debug
-          console.log('Academic profile:', latestAssessment.academic_profile);
-          console.log('Personal interests:', latestAssessment.personal_interests);
-          console.log('Hobbies:', latestAssessment.hobbies);
+          logger.debug('Academic profile:', latestAssessment.academic_profile);
+          logger.debug('Personal interests:', latestAssessment.personal_interests);
+          logger.debug('Hobbies:', latestAssessment.hobbies);
           
           // Calculate actual strand scores
           const scores = calculateStrandScores(latestAssessment);
-          console.log('Calculated scores:', scores);
+          logger.debug('Calculated scores:', scores);
           
           const formattedResults = formatResults(scores);
-          console.log('Formatted results:', formattedResults);
+          logger.debug('Formatted results:', formattedResults);
           
           setRecentResults(formattedResults);
           
@@ -419,7 +420,7 @@ const Dashboard = () => {
         
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+        logger.error("Error fetching dashboard data:", error);
         setLoading(false);
       }
     };
