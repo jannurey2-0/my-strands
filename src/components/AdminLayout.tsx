@@ -101,6 +101,15 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
     { id: 'settings', label: 'System Settings', icon: Settings },
   ];
 
+  const handleNavigation = (itemId: string) => {
+    // If we're on a different route (like /admin/profile), navigate to dashboard first
+    if (window.location.pathname !== '/admin/dashboard') {
+      navigate('/admin/dashboard');
+    }
+    setActiveSection(itemId as 'dashboard' | 'students' | 'schools' | 'questions' | 'settings');
+    setSidebarOpen(false);
+  };
+
   const handleSignOut = async () => {
     console.log("Sign out button clicked");
     try {
@@ -170,10 +179,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
               return (
                 <li key={item.id}>
                   <button
-                    onClick={() => {
-                      setActiveSection(item.id as 'dashboard' | 'students' | 'schools' | 'questions' | 'settings');
-                      setSidebarOpen(false);
-                    }}
+                    onClick={() => handleNavigation(item.id)}
                     className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                       activeSection === item.id
                         ? 'bg-primary text-primary-foreground shadow-md'
