@@ -240,9 +240,9 @@ export default function AdminDashboard() {
 
       if (studentsError) throw studentsError;
 
-      // Fetch assessments count
+      // Fetch assessment responses count (changed from 'assessments' table)
       const { count: assessmentsCount, error: assessmentsError } = await supabase
-        .from('assessments')
+        .from('assessment_responses')
         .select('*', { count: 'exact', head: true });
 
       if (assessmentsError) throw assessmentsError;
