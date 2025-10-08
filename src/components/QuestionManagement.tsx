@@ -11,6 +11,9 @@ import { Plus, Trash2, Edit2, BookOpen, Award, Zap, Upload } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import Papa from 'papaparse';
+// Add table and pagination components
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 interface AptitudeQuestion {
   id: string;
@@ -33,6 +36,9 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
   const [editingQuestion, setEditingQuestion] = useState<AptitudeQuestion | null>(null);
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  // Add pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     question: '',
@@ -45,6 +51,18 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
     difficulty_level: 1,
     type: 'multiple_choice' as 'multiple_choice' | 'true_false' | 'essay' | 'identification'
   });
+
+  // Calculate pagination values
+  const totalPages = Math.ceil(questions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentQuestions = questions.slice(startIndex, endIndex);
+
+  // Reset to first page when questions change
+  const handleRefresh = () => {
+    onRefresh();
+    setCurrentPage(1);
+  };
 
   const resetForm = () => {
     setFormData({
@@ -127,7 +145,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
       }
 
       resetForm();
-      onRefresh();
+      handleRefresh();
     } catch (error) {
       console.error('Error saving question:', error);
       toast({
@@ -152,7 +170,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
         description: "Question deleted successfully"
       });
 
-      onRefresh();
+      handleRefresh();
     } catch (error) {
       console.error('Error deleting question:', error);
       toast({
@@ -223,7 +241,7 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
               description: `Successfully imported ${questionsToInsert.length} questions!`
             });
 
-            onRefresh();
+            handleRefresh();
           } catch (error) {
             console.error('Error importing questions:', error);
             toast({
@@ -282,6 +300,24 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
       case 'logical': return <span className="font-bold text-orange-500">L</span>;
       default: return <span>?</span>;
     }
+  };
+
+  // Helper function to get difficulty text
+  const getDifficultyText = (level: number) => {
+    switch (level) {
+      case 1: return 'Easy';
+      case 2: return 'Medium';
+      case 3: return 'Hard';
+      default: return 'Unknown';
+    }
+  };
+
+  // Helper function to get correct answer text
+  const getCorrectAnswerText = (question: AptitudeQuestion) => {
+    if (question.type === 'true_false') {
+      return question.correct_answer === 0 ? 'True' : 'False';
+    }
+    return `Option ${question.correct_answer + 1}`;
   };
 
   return (
@@ -565,98 +601,165 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-4">
-        {questions.map((question, index) => (
-          <Card key={question.id} className="hover:shadow-md transition-all duration-200 border-muted/30">
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="mt-1 text-muted-foreground">
+      {/* Questions Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">#</TableHead>
+              <TableHead>Question</TableHead>
+              <TableHead className="w-[120px]">Category</TableHead>
+              <TableHead className="w-[100px]">Type</TableHead>
+              <TableHead className="w-[100px]">Difficulty</TableHead>
+              <TableHead className="w-[120px]">Correct Answer</TableHead>
+              <TableHead className="w-[100px] text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {currentQuestions.length > 0 ? (
+              currentQuestions.map((question, index) => (
+                <TableRow key={question.id}>
+                  <TableCell className="font-medium">{startIndex + index + 1}</TableCell>
+                  <TableCell>
+                    <div className="max-w-md truncate" title={question.question}>
+                      {question.question}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
                       {getCategoryIcon(question.category)}
+                      <span className="capitalize">{question.category}</span>
                     </div>
-                    <h3 className="font-medium text-foreground">{question.question}</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                    {question.options.map((option, optionIndex) => (
-                      <div 
-                        key={optionIndex} 
-                        className={`p-3 rounded-lg border ${
-                          optionIndex === question.correct_answer 
-                            ? 'bg-primary/10 border-primary/30 text-primary font-medium' 
-                            : 'bg-muted/50 border-muted text-muted-foreground'
-                        }`}
+                  </TableCell>
+                  <TableCell className="capitalize">
+                    {question.type?.replace('_', ' ') || 'multiple choice'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {getDifficultyIcon(question.difficulty_level)}
+                      <span>{getDifficultyText(question.difficulty_level)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{getCorrectAnswerText(question)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEdit(question)}
                       >
-                        <div className="flex items-center gap-2">
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
-                            optionIndex === question.correct_answer 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'bg-muted text-muted-foreground'
-                          }`}>
-                            {optionIndex + 1}
-                          </span>
-                          <span>{option}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-3 text-xs">
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-full">
-                      <span className="text-muted-foreground">Category:</span>
-                      <span className="font-medium capitalize">{question.category}</span>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setQuestionToDelete(question.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-full">
-                      <span className="text-muted-foreground">Difficulty:</span>
-                      <span className="font-medium flex items-center gap-1">
-                        {getDifficultyIcon(question.difficulty_level)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleEdit(question)}
-                    className="h-9 px-3"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    <span className="sr-only">Edit</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setQuestionToDelete(question.id)}
-                    className="h-9 px-3"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span className="sr-only">Delete</span>
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {questions.length === 0 && (
-          <Card className="border-dashed border-muted">
-            <CardContent className="py-12 text-center">
-              <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No Questions Found</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by creating your first assessment question.
-              </p>
-              <Button onClick={() => setShowForm(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Question
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  No questions found. Get started by creating your first assessment question.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
+
+      {/* Pagination */}
+      {questions.length > 0 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Showing {startIndex + 1}-{Math.min(endIndex, questions.length)} of {questions.length} questions
+          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              
+              {/* Show first page */}
+              {currentPage > 2 && (
+                <>
+                  <PaginationItem>
+                    <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+                  </PaginationItem>
+                  {currentPage > 3 && (
+                    <PaginationItem>
+                      <span className="px-3 py-1">...</span>
+                    </PaginationItem>
+                  )}
+                </>
+              )}
+              
+              {/* Show previous page */}
+              {currentPage > 1 && (
+                <PaginationItem>
+                  <PaginationLink onClick={() => setCurrentPage(currentPage - 1)}>
+                    {currentPage - 1}
+                  </PaginationLink>
+                </PaginationItem>
+              )}
+              
+              {/* Show current page */}
+              <PaginationItem>
+                <PaginationLink isActive>{currentPage}</PaginationLink>
+              </PaginationItem>
+              
+              {/* Show next page */}
+              {currentPage < totalPages && (
+                <PaginationItem>
+                  <PaginationLink onClick={() => setCurrentPage(currentPage + 1)}>
+                    {currentPage + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              )}
+              
+              {/* Show last page */}
+              {currentPage < totalPages - 1 && (
+                <>
+                  {currentPage < totalPages - 2 && (
+                    <PaginationItem>
+                      <span className="px-3 py-1">...</span>
+                    </PaginationItem>
+                  )}
+                  <PaginationItem>
+                    <PaginationLink onClick={() => setCurrentPage(totalPages)}>
+                      {totalPages}
+                    </PaginationLink>
+                  </PaginationItem>
+                </>
+              )}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+
+      {/* Show add button when no questions exist */}
+      {questions.length === 0 && (
+        <div className="text-center py-8">
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Question
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
