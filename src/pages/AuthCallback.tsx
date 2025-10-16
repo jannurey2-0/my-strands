@@ -13,24 +13,11 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
-        // Get all parameters from URL
+        // Check for error parameters first
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
         
-        // Log everything for debugging
-        console.log("Full URL:", window.location.href);
-        console.log("Hash:", window.location.hash);
-        console.log("Search:", window.location.search);
-        console.log("Hash params:", Object.fromEntries(hashParams.entries()));
-        console.log("Query params:", Object.fromEntries(queryParams.entries()));
-
-        // Try to get the session from Supabase
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        console.log("Current session:", session);
-        console.log("Session error:", sessionError);
-
-        // Check for error parameters
-        const error = hashParams.get("error") || queryParams.get("error") || hashParams.get("error_code");
+        const error = hashParams.get("error") || queryParams.get("error");
         const errorDescription = hashParams.get("error_description") || queryParams.get("error_description");
 
         if (error) {
@@ -40,20 +27,47 @@ export default function AuthCallback() {
           return;
         }
 
-        // If we have a session, confirmation was successful
-        if (session) {
-          console.log("Session found - email confirmed!");
-          // Sign out immediately to prevent auto-login
-          await supabase.auth.signOut();
-          
-          setStatus("success");
-          setMessage("You can now close this tab and proceed to Login");
-        } else {
-          // No session and no error - might be an invalid/expired link
-          console.warn("No session and no error - invalid link?");
-          setStatus("error");
-          setMessage("Invalid confirmation link or link has expired. Please try signing up again.");
-        }
+        // Wait for Supabase to process the URL and establish session
+        // Using onAuthStateChange to wait for the SIGNED_IN event
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log("Auth event during confirmation:", event, session);
+            
+            if (event === 'SIGNED_IN' && session) {
+              // Email confirmed successfully
+              console.log("Email confirmed - session established");
+              
+              // Sign out to prevent auto-login
+              await supabase.auth.signOut();
+              
+              setStatus("success");
+              setMessage("Email confirmed! You can now log in with your credentials.");
+              
+              // Unsubscribe after handling
+              subscription.unsubscribe();
+            } else if (event === 'USER_UPDATED') {
+              // Also handle USER_UPDATED event
+              const { data: { session: currentSession } } = await supabase.auth.getSession();
+              if (currentSession) {
+                console.log("User updated - email confirmed");
+                await supabase.auth.signOut();
+                setStatus("success");
+                setMessage("Email confirmed! You can now log in with your credentials.");
+                subscription.unsubscribe();
+              }
+            }
+          }
+        );
+
+        // Timeout after 10 seconds if no auth event received
+        setTimeout(() => {
+          subscription.unsubscribe();
+          if (status === "loading") {
+            setStatus("error");
+            setMessage("Confirmation timeout. The link may have expired. Please try signing up again.");
+          }
+        }, 10000);
+
       } catch (error) {
         console.error("Error during email confirmation:", error);
         setStatus("error");
@@ -61,9 +75,8 @@ export default function AuthCallback() {
       }
     };
 
-    // Add a small delay to ensure Supabase has processed the URL
-    setTimeout(handleEmailConfirmation, 100);
-  }, []);
+    handleEmailConfirmation();
+  }, [status]);
 
   const handleProceedToLogin = () => {
     navigate("/student/login");
