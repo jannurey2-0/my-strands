@@ -12,7 +12,14 @@ const AuthDebug = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log("AuthDebug - Auth state:", { user, profile, loading });
+    // Only log in development environment
+    if (import.meta.env.DEV) {
+      console.log("AuthDebug - Auth state:", { 
+        user: user ? 'User present' : 'No user', 
+        profile: profile ? 'Profile present' : 'No profile', 
+        loading 
+      });
+    }
     setDebugInfo({ user, profile, loading });
   }, [user, profile, loading]);
 
@@ -23,7 +30,10 @@ const AuthDebug = () => {
     }
 
     try {
-      console.log("Manually fetching profile for user:", user.id);
+      // Only log in development environment
+      if (import.meta.env.DEV) {
+        console.log("Manually fetching profile for user:", user.id);
+      }
       
       // Test different query approaches
       const result1 = await supabase
@@ -32,7 +42,10 @@ const AuthDebug = () => {
         .eq('user_id', user.id)
         .maybeSingle();
       
-      console.log("Manual profile fetch result 1:", result1);
+      // Only log in development environment
+      if (import.meta.env.DEV) {
+        console.log("Manual profile fetch result 1:", result1);
+      }
       
       // Test with limit(1)
       const result2 = await supabase
@@ -41,7 +54,10 @@ const AuthDebug = () => {
         .eq('user_id', user.id)
         .limit(1);
       
-      console.log("Manual profile fetch result 2:", result2);
+      // Only log in development environment
+      if (import.meta.env.DEV) {
+        console.log("Manual profile fetch result 2:", result2);
+      }
       
       setManualProfile({
         maybeSingle: result1,
@@ -56,10 +72,13 @@ const AuthDebug = () => {
   const testAuthFunctions = async () => {
     try {
       const sessionResult = await supabase.auth.getSession();
-      console.log("Session result:", sessionResult);
-      
       const userResult = await supabase.auth.getUser();
-      console.log("User result:", userResult);
+      
+      // Only log in development environment
+      if (import.meta.env.DEV) {
+        console.log("Session result:", sessionResult);
+        console.log("User result:", userResult);
+      }
       
       setDebugInfo(prev => ({
         ...prev,
@@ -93,7 +112,14 @@ const AuthDebug = () => {
     try {
       // Force refresh the session
       const { data, error } = await supabase.auth.refreshSession();
-      console.log("Session refresh result:", { data, error });
+      
+      // Only log in development environment
+      if (import.meta.env.DEV) {
+        console.log("Session refresh result:", { 
+          data: data ? 'Data present' : 'No data', 
+          error: error ? 'Error present' : 'No error' 
+        });
+      }
       
       if (error) {
         console.error("Session refresh error:", error);
@@ -122,15 +148,18 @@ const AuthDebug = () => {
       setDebugInfo(prev => ({
         ...prev,
         localStorage: {
-          supabaseAuthTokens,
+          supabaseAuthTokens: supabaseAuthTokens ? 'Tokens present' : 'No tokens',
           allItems: Object.keys(allLocalStorage).length
         }
       }));
       
-      console.log("LocalStorage contents:", {
-        supabaseAuthTokens,
-        allItems: Object.keys(allLocalStorage)
-      });
+      // Only log in development environment
+      if (import.meta.env.DEV) {
+        console.log("LocalStorage contents:", {
+          supabaseAuthTokens: supabaseAuthTokens ? 'Tokens present' : 'No tokens',
+          allItems: Object.keys(allLocalStorage)
+        });
+      }
     } catch (error) {
       console.error("Error checking localStorage:", error);
     }

@@ -74,7 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const createProfile = useCallback(
     async (user: User): Promise<Profile | null> => {
       try {
-        console.log("Creating profile for user:", user.id);
+        // Only log in development environment
+        if (import.meta.env.DEV) {
+          console.log("Creating profile for user:", user.id);
+        }
 
         const { data, error } = await supabase
           .from("profiles")
@@ -97,7 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return null;
         }
 
-        console.log("Profile created:", data);
+        // Only log in development environment
+        if (import.meta.env.DEV) {
+          console.log("Profile created:", data ? 'Data present' : 'No data');
+        }
         return data as any as Profile;
       } catch (err: any) {
         console.error("Unexpected error creating profile:", err);
@@ -121,9 +127,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const fetchWithTimeout = async (attempt: number): Promise<Profile | null> => {
         try {
-          console.log(
-            `Fetching profile for user ${userId}, attempt ${attempt}/${MAX_RETRIES}`
-          );
+          // Only log in development environment
+          if (import.meta.env.DEV) {
+            console.log(
+              `Fetching profile for user ${userId}, attempt ${attempt}/${MAX_RETRIES}`
+            );
+          }
 
           const timeoutPromise = new Promise<null>((_, reject) => {
             setTimeout(() => {
@@ -147,7 +156,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.error("Supabase error fetching profile:", error);
 
                 if (error.code === "PGRST116") {
-                  console.log("Profile not found, creating...");
+                  // Only log in development environment
+                  if (import.meta.env.DEV) {
+                    console.log("Profile not found, creating...");
+                  }
                   return await createProfile(user);
                 }
                 throw error;
@@ -204,6 +216,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (session?.user) {
+          // Only log in development environment
+          if (import.meta.env.DEV) {
+            console.log("User authenticated:", session.user.id);
+          }
           safeSetAuthState({ session, user: session.user });
           fetchProfile(session.user.id, session.user).catch((err) => {
             console.error("Profile fetch error during init:", err);
@@ -230,7 +246,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth state change:", { event, session });
+        // Only log in development environment
+        if (import.meta.env.DEV) {
+          console.log("Auth state change:", { event, session: session ? 'Session present' : 'No session' });
+        }
 
         safeSetAuthState({
           session,

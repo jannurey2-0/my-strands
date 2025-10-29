@@ -17,17 +17,22 @@ export default function AuthCallback() {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
         
-        // Log everything for debugging
-        console.log("Full URL:", window.location.href);
-        console.log("Hash:", window.location.hash);
-        console.log("Search:", window.location.search);
-        console.log("Hash params:", Object.fromEntries(hashParams.entries()));
-        console.log("Query params:", Object.fromEntries(queryParams.entries()));
+        // Only log in development environment
+        if (import.meta.env.DEV) {
+          console.log("Full URL:", window.location.href);
+          console.log("Hash:", window.location.hash);
+          console.log("Search:", window.location.search);
+          console.log("Hash params:", Object.fromEntries(hashParams.entries()));
+          console.log("Query params:", Object.fromEntries(queryParams.entries()));
+        }
 
         // Try to get the session from Supabase
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        console.log("Current session:", session);
-        console.log("Session error:", sessionError);
+        // Only log in development environment
+        if (import.meta.env.DEV) {
+          console.log("Current session:", session ? 'Session present' : 'No session');
+          console.log("Session error:", sessionError);
+        }
 
         // Check for error parameters
         const error = hashParams.get("error") || queryParams.get("error") || hashParams.get("error_code");
@@ -42,7 +47,10 @@ export default function AuthCallback() {
 
         // If we have a session, confirmation was successful
         if (session) {
-          console.log("Session found - email confirmed!");
+          // Only log in development environment
+          if (import.meta.env.DEV) {
+            console.log("Session found - email confirmed!");
+          }
           // Sign out immediately to prevent auto-login
           await supabase.auth.signOut();
           

@@ -21,8 +21,6 @@ import StudentAuth from "./pages/StudentAuth";
 import AdminAuth from "./pages/AdminAuth";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
-import TestAssessment from "./pages/TestAssessment";
-import DatabaseTest from "./pages/DatabaseTest";
 import AuthDebug from "./pages/AuthDebug";
 import Profile from "./pages/Profile";
 import AdminProfile from "./pages/AdminProfile";
@@ -123,26 +121,6 @@ const AppContent = () => (
             <ErrorBoundary>
               <ProtectedRoute requiredRole="admin">
                 <AdminProfile />
-              </ProtectedRoute>
-            </ErrorBoundary>
-          } 
-        />
-        <Route 
-          path="/test-assessment" 
-          element={
-            <ErrorBoundary>
-              <ProtectedRoute requiredRole="student">
-                <TestAssessment />
-              </ProtectedRoute>
-            </ErrorBoundary>
-          } 
-        />
-        <Route 
-          path="/database-test" 
-          element={
-            <ErrorBoundary>
-              <ProtectedRoute requiredRole="student">
-                <DatabaseTest />
               </ProtectedRoute>
             </ErrorBoundary>
           } 

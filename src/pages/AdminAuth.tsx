@@ -22,7 +22,10 @@ export default function AdminAuth() {
       setAuthChecked(true);
       
       if (user && profile && profile.role === 'admin') {
-        console.log('Admin authenticated, navigating to admin dashboard');
+        // Only log in development environment
+        if (import.meta.env.DEV) {
+          console.log('Admin authenticated, navigating to admin dashboard');
+        }
         navigate('/admin/dashboard');
       }
       // If user is authenticated but not admin, show error and redirect
@@ -56,7 +59,10 @@ export default function AdminAuth() {
     }
     
     // Successfully authenticated, now check role
-    console.log('Admin sign in successful, waiting for profile to load...');
+    // Only log in development environment
+    if (import.meta.env.DEV) {
+      console.log('Admin sign in successful, waiting for profile to load...');
+    }
     setIsLoading(false);
   };
 
