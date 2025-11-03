@@ -375,9 +375,26 @@ const Dashboard = () => {
           logger.debug('Personal interests:', latestAssessment.personal_interests);
           logger.debug('Hobbies:', latestAssessment.hobbies);
           
-          // Calculate actual strand scores
-          const scores = calculateStrandScores(latestAssessment);
-          logger.debug('Calculated scores:', scores);
+          let scores: Record<string, number>;
+          
+          // Use saved recommendations if available, otherwise calculate
+          if (latestAssessment.recommendations) {
+            scores = latestAssessment.recommendations as Record<string, number>;
+          } else {
+            // Calculate actual strand scores
+            scores = calculateStrandScores(latestAssessment);
+            
+            // Save recommendations to database
+            try {
+              await assessmentService.saveRecommendations(latestAssessment.id, scores);
+              // Update the local state with the saved recommendations
+              latestAssessment.recommendations = scores;
+            } catch (saveError) {
+              console.error("Failed to save recommendations:", saveError);
+            }
+          }
+          
+          logger.debug('Scores:', scores);
           
           const formattedResults = formatResults(scores);
           logger.debug('Formatted results:', formattedResults);

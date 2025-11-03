@@ -58,6 +58,7 @@ export type Database = {
           hobbies: Json
           id: string
           personal_interests: Json
+          recommendations: Json | null
           student_id: string
           submitted_at: string
           updated_at: string
@@ -69,6 +70,7 @@ export type Database = {
           hobbies: Json
           id?: string
           personal_interests: Json
+          recommendations?: Json | null
           student_id: string
           submitted_at?: string
           updated_at?: string
@@ -80,6 +82,7 @@ export type Database = {
           hobbies?: Json
           id?: string
           personal_interests?: Json
+          recommendations?: Json | null
           student_id?: string
           submitted_at?: string
           updated_at?: string

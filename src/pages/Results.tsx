@@ -466,8 +466,25 @@ const Results = () => {
           const latest = assessments[0];
           setLatestAssessment(latest);
           
-          // Calculate scores and format results
-          const scores = await calculateStrandScores(latest);
+          let scores: Record<string, number>;
+          
+          // Use saved recommendations if available, otherwise calculate and save
+          if (latest.recommendations) {
+            scores = latest.recommendations as Record<string, number>;
+          } else {
+            // Calculate scores
+            scores = await calculateStrandScores(latest);
+            
+            // Save recommendations to database
+            try {
+              await assessmentService.saveRecommendations(latest.id, scores);
+              // Update the local state with the saved recommendations
+              latest.recommendations = scores;
+            } catch (saveError) {
+              console.error("Failed to save recommendations:", saveError);
+            }
+          }
+          
           const results = formatResults(scores);
           setStrandResults(results);
         } else {

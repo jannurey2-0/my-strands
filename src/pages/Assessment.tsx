@@ -394,7 +394,10 @@ const Assessment = () => {
       // If we have an assessment attempt in progress, mark it as completed
       if (currentAttemptId) {
         try {
-          await assessmentService.completeAssessmentAttempt(currentAttemptId, aptitudeScore);
+          const result = await assessmentService.completeAssessmentAttempt(currentAttemptId, aptitudeScore);
+          if (!result) {
+            console.warn("Assessment attempt could not be completed - attempt may not exist");
+          }
         } catch (error) {
           console.error("Error completing assessment attempt:", error);
           // Don't fail the submission if we can't complete the attempt

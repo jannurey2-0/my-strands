@@ -43,12 +43,17 @@ export default function StudentAuth() {
 
   const [formError, setFormError] = useState('');
   const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
+    setEmailError('');
+    setNameError('');
+    setPasswordError('');
     
     const formData = new FormData(e.currentTarget);
     const fullName = formData.get('fullName') as string;
@@ -67,7 +72,14 @@ export default function StudentAuth() {
     if (!error) {
       logger.safe('Student sign up successful');
     } else {
-      setFormError(error.message || 'An error occurred during sign up');
+      // Check what type of error it is
+      if (error.message.includes('Invalid Email')) {
+        setEmailError(error.message);
+      } else if (error.message.includes('Invalid Password') || error.message.includes('Password')) {
+        setPasswordError(error.message);
+      } else {
+        setFormError(error.message || 'An error occurred during sign up');
+      }
     }
     
     setIsLoading(false);
@@ -75,6 +87,8 @@ export default function StudentAuth() {
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFormError('');
+    setPasswordError('');
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
@@ -84,6 +98,13 @@ export default function StudentAuth() {
     
     if (!error) {
       logger.safe('Student sign in successful, waiting for profile to load...');
+    } else {
+      // Check what type of error it is
+      if (error.message.includes('Invalid Password') || error.message.includes('Password')) {
+        setPasswordError(error.message);
+      } else {
+        setFormError(error.message || 'An error occurred during sign in');
+      }
     }
     
     setIsLoading(false);
@@ -197,7 +218,7 @@ export default function StudentAuth() {
                         placeholder="Enter your password"
                         type={showSignInPassword ? "text" : "password"} 
                         required 
-                        className="pr-10"
+                        className={`pr-10 ${passwordError ? 'border-destructive' : ''}`}
                       />
                       <button
                         type="button"
@@ -211,6 +232,9 @@ export default function StudentAuth() {
                         )}
                       </button>
                     </div>
+                    {passwordError && (
+                      <p className="text-sm text-destructive mt-1">{passwordError}</p>
+                    )}
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Signing in...' : 'Sign In'}
@@ -243,7 +267,12 @@ export default function StudentAuth() {
                       type="email" 
                       placeholder="your-email@example.com" 
                       required 
+                      onChange={() => setEmailError('')}
+                      className={emailError ? 'border-destructive' : ''}
                     />
+                    {emailError && (
+                      <p className="text-sm text-destructive mt-1">{emailError}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
@@ -255,7 +284,8 @@ export default function StudentAuth() {
                         type={showSignUpPassword ? "text" : "password"} 
                         minLength={6}
                         required 
-                        className="pr-10"
+                        className={`pr-10 ${passwordError ? 'border-destructive' : ''}`}
+                        onChange={() => setPasswordError('')}
                       />
                       <button
                         type="button"
@@ -269,12 +299,19 @@ export default function StudentAuth() {
                         )}
                       </button>
                     </div>
+                    {passwordError && (
+                      <p className="text-sm text-destructive mt-1">{passwordError}</p>
+                    )}
                   </div>
                   {formError && (
                     <div className="text-sm text-destructive text-center">
                       {formError}
                     </div>
                   )}
+                  <div className="text-xs text-muted-foreground mt-2">
+                    Note: Please use a valid email address. Disposable or fake emails will be rejected.
+                    Password must be at least 6 characters and cannot contain only spaces.
+                  </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Creating Account...' : 'Create Account'}
                   </Button>

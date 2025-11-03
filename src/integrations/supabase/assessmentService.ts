@@ -31,6 +31,7 @@ export interface AssessmentData {
   personalInterests: string[];
   hobbies: string[];
   aptitudeAnswers: Record<string, number | string>;
+  recommendations?: Record<string, number> | null;
 }
 
 export const assessmentService = {
@@ -287,7 +288,7 @@ export const assessmentService = {
         })
         .eq('id', attemptId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -333,6 +334,26 @@ export const assessmentService = {
     }
   },
 
+  // Save strand recommendations for an assessment
+  saveRecommendations: async (assessmentId: string, recommendations: Record<string, number>) => {
+    try {
+      const { data, error } = await supabase
+        .from('assessment_responses')
+        .update({
+          recommendations: recommendations
+        })
+        .eq('id', assessmentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error('Error in saveRecommendations:', error);
+      throw error;
+    }
+  },
+
   // Check if a specific page is under maintenance
   isPageUnderMaintenance: async (pageName: string) => {
     try {
@@ -354,6 +375,18 @@ export const assessmentService = {
     } catch (error) {
       logger.error('Error in isPageUnderMaintenance:', error);
       return { isUnderMaintenance: false, maintenanceMessage: 'Currently Under Development' };
+    }
+  },
+
+  // Test function to verify recommendations saving
+  testRecommendationsSaving: async (assessmentId: string, testData: Record<string, number>) => {
+    try {
+      const result = await assessmentService.saveRecommendations(assessmentId, testData);
+      logger.debug('Test recommendations saved successfully:', result);
+      return result;
+    } catch (error) {
+      logger.error('Error in testRecommendationsSaving:', error);
+      throw error;
     }
   }
 };

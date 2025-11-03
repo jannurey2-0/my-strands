@@ -44,6 +44,59 @@ interface AuthContextType extends AuthState {
   refreshAuthState: () => Promise<void>;
 }
 
+// ---- Email Validation ----
+const validateEmail = (email: string): { isValid: boolean; message: string } => {
+  // Basic email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { isValid: false, message: "Please enter a valid email address." };
+  }
+
+  // Check for common disposable email domains
+  const disposableDomains = [
+    'mail.com', 'mail.ru', '10minutemail.com', 'guerrillamail.com', 
+    'tempmail.org', 'throwawaymail.com', 'mailinator.com', 'yopmail.com',
+    'temp-mail.org', 'disposablemail.com', 'trashmail.com', 'fakeinbox.com'
+  ];
+
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (disposableDomains.includes(domain)) {
+    return { isValid: false, message: "Please use a valid institutional or personal email address." };
+  }
+
+  // Check for obviously fake emails
+  const fakeEmailPatterns = [
+    'asdf', 'qwer', 'zxcv', 'test', 'dummy', 'fake', 'example', 'dfandfanda'
+  ];
+
+  const localPart = email.split('@')[0]?.toLowerCase();
+  if (fakeEmailPatterns.some(pattern => localPart.includes(pattern))) {
+    return { isValid: false, message: "Please use a real email address." };
+  }
+
+  return { isValid: true, message: "" };
+};
+
+// ---- Password Validation ----
+const validatePassword = (password: string): { isValid: boolean; message: string } => {
+  // Check if password is empty or only whitespace
+  if (!password || !password.trim()) {
+    return { isValid: false, message: "Password cannot be empty or contain only spaces." };
+  }
+
+  // Check minimum length
+  if (password.length < 6) {
+    return { isValid: false, message: "Password must be at least 6 characters long." };
+  }
+
+  // Check if password is all whitespace
+  if (password.trim().length === 0) {
+    return { isValid: false, message: "Password cannot contain only spaces." };
+  }
+
+  return { isValid: true, message: "" };
+};
+
 // ---- Context ----
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -277,6 +330,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ---- Auth Actions ----
   const signUp = async (email: string, password: string, fullName: string) => {
+    // Validate email before proceeding
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      toast({
+        title: "Invalid Email",
+        description: emailValidation.message,
+        variant: "destructive"
+      });
+      return { error: new Error(emailValidation.message) };
+    }
+
+    // Validate password before proceeding
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      toast({
+        title: "Invalid Password",
+        description: passwordValidation.message,
+        variant: "destructive"
+      });
+      return { error: new Error(passwordValidation.message) };
+    }
+
     const redirectUrl = `${window.location.origin}/auth/callback`;
 
     const { error } = await supabase.auth.signUp({
@@ -305,6 +380,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    // Validate password before proceeding
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      toast({
+        title: "Invalid Password",
+        description: passwordValidation.message,
+        variant: "destructive"
+      });
+      return { error: new Error(passwordValidation.message) };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
