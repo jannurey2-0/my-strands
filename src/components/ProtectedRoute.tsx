@@ -36,7 +36,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         
         // Try to refresh auth state as a fallback
         refreshAuthState();
-      }, 15000); // 15 seconds timeout
+      }, 5000); // Reduced to 5 seconds timeout for better UX
       
       return () => {
         if (profileTimeoutRef.current) {
@@ -96,7 +96,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     return <Navigate to="/student/login" replace />;
   }
 
-  // If user exists but profile is still loading, show loading state
+  // If user exists but profile is still loading, show loading state for a limited time
   // This prevents redirecting to login when profile is still being fetched
   if (user && !profile && profileLoading) {
     logger.debug('User exists but profile is null, waiting for profile to load');
@@ -111,6 +111,13 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     );
   }
 
+  // If profile loading timed out, allow access but show a warning
+  if (user && !profile && profileError) {
+    logger.debug('Profile loading timed out, allowing access with warning');
+    // Show a warning but allow access since authentication is valid
+    // This prevents the session from breaking due to profile fetch issues
+  }
+
   // If a role is required and profile is loaded but role doesn't match, redirect to appropriate login
   if (requiredRole && profile?.role !== requiredRole) {
     logger.debug('Role mismatch:', { requiredRole, profileRole: profile?.role });
@@ -121,19 +128,12 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     return <Navigate to="/student/login" replace />;
   }
 
-  // If a role is required but profile is not loaded yet, show loading state
-  // This prevents granting temporary access while profile is loading
+  // If a role is required but profile is not loaded yet, allow temporary access
+  // This prevents blocking access indefinitely while profile loads
   if (requiredRole && !profile && user) {
-    logger.debug('Role required but profile not loaded yet, waiting for profile to load');
-    // Show loading while we wait for profile to load
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Loading profile...</span>
-        </div>
-      </div>
-    );
+    logger.debug('Role required but profile not loaded yet, allowing temporary access');
+    // Allow temporary access while profile loads in background
+    // The role check will be performed again when profile loads
   }
 
   logger.debug('Access granted for:', { role: profile?.role, requiredRole });

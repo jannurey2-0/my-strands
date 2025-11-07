@@ -173,9 +173,7 @@ const Assessment = () => {
         
         setLoadingQuestions(true);
         try {
-          console.log('Fetching aptitude questions for user:', user.id);
           const questions = await assessmentService.getAptitudeQuestions(user.id);
-          console.log('Received questions:', questions);
           
           // Extract attempt ID from the first question (all questions in the set have the same attempt_id)
           if (questions.length > 0 && questions[0].attempt_id) {
@@ -184,8 +182,6 @@ const Assessment = () => {
           
           setAptitudeQuestions(questions);
           
-          // Log success for debugging
-          console.log(`Successfully loaded ${questions.length} aptitude questions`);
         } catch (error) {
           console.error('Error fetching aptitude questions:', error);
           toast({

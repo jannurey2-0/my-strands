@@ -1,0 +1,35 @@
+{
+  "basicInfo": {
+    "fullName": "Maria Santos",
+    "age": "16",
+    "gender": "Female",
+    "school": "Quezon City High School",
+    "region": "National Capital Region (NCR)",
+    "email": "maria.santos@example.com"
+  },
+  "academicProfile": {
+    "gwa": "92",
+    "favoriteSubject": "Business Math",
+    "leastFavoriteSubject": "Chemistry"
+  },
+  "personalInterests": [
+    "Business and Finance",
+    "Entrepreneurship",
+    "Leadership",
+    "Communication"
+  ],
+  "hobbies": [
+    "Reading",
+    "Writing",
+    "Board Games",
+    "Entrepreneurial Activities",
+    "Collecting"
+  ],
+  "aptitudeAnswers": {
+    "question_1": 2,
+    "question_2": 1,
+    "question_3": 3,
+    "question_4": 0,
+    "question_5": 2
+  }
+}

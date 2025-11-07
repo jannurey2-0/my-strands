@@ -11,12 +11,12 @@ export const MODEL_CONFIG = {
   
   // Training parameters
   training: {
-    epochs: 100,
-    batchSize: 32,
+    epochs: 200, // Increase epochs
+    batchSize: 16, // Reduce batch size for smaller datasets
     learningRate: 0.001,
     validationSplit: 0.2,
     earlyStopping: {
-      patience: 10,
+      patience: 15, // Increase patience
       minDelta: 0.001,
     },
   },

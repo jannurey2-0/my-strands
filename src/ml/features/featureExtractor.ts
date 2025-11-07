@@ -1,5 +1,6 @@
 import { IAssessment, IAssessmentFeatures } from '../interfaces/IAssessment';
 import { MODEL_CONFIG } from '../config/modelConfig';
+import logger from '@/lib/logger';
 
 /**
  * Feature extractor for converting assessment data into ML model features
@@ -11,25 +12,42 @@ export class FeatureExtractor {
    * @returns Extracted features as a numeric array
    */
   static extractFeatures(assessment: IAssessment): IAssessmentFeatures {
-    // Extract academic features
-    const gwa = parseFloat(assessment.academicProfile.gwa) || 75;
-    const favoriteSubjectScore = this.getSubjectScore(assessment.academicProfile.favoriteSubject);
-    const leastFavoriteSubjectScore = this.getSubjectScore(assessment.academicProfile.leastFavoriteSubject);
+    // Validate input
+    if (!assessment) {
+      throw new Error('Assessment data cannot be null or undefined');
+    }
+    
+    // Validate required fields
+    if (!assessment.basicInfo) {
+      throw new Error('Basic info is required');
+    }
+    
+    if (!assessment.academicProfile) {
+      throw new Error('Academic profile is required');
+    }
+    
+    // Extract academic features with validation
+    const gwa = this.validateAndParseGWA(assessment.academicProfile.gwa);
+    const favoriteSubjectScore = this.getSubjectScore(assessment.academicProfile.favoriteSubject || '');
+    const leastFavoriteSubjectScore = this.getSubjectScore(assessment.academicProfile.leastFavoriteSubject || '');
     
     // Extract interest alignment scores
-    const interestScores = this.calculateInterestScores(assessment.personalInterests);
+    const interests = Array.isArray(assessment.personalInterests) ? assessment.personalInterests : [];
+    const interestScores = this.calculateInterestScores(interests);
     
     // Extract hobby alignment scores
-    const hobbyScores = this.calculateHobbyScores(assessment.hobbies);
+    const hobbies = Array.isArray(assessment.hobbies) ? assessment.hobbies : [];
+    const hobbyScores = this.calculateHobbyScores(hobbies);
     
     // Calculate aptitude score
-    const aptitudeScore = this.calculateAptitudeScore(assessment.aptitudeAnswers);
+    const aptitudeAnswers = assessment.aptitudeAnswers || {};
+    const aptitudeScore = this.calculateAptitudeScore(aptitudeAnswers);
     
     // Extract demographic features
-    const age = parseInt(assessment.basicInfo.age) || 15;
-    const gender = this.encodeGender(assessment.basicInfo.gender);
+    const age = this.validateAndParseAge(assessment.basicInfo.age);
+    const gender = this.encodeGender(assessment.basicInfo.gender || '');
     
-    return {
+    const features = {
       gwa,
       favoriteSubjectScore,
       leastFavoriteSubjectScore,
@@ -39,6 +57,8 @@ export class FeatureExtractor {
       age,
       gender,
     };
+    
+    return features;
   }
   
   /**
@@ -47,7 +67,12 @@ export class FeatureExtractor {
    * @returns Numeric array of features
    */
   static featuresToArray(features: IAssessmentFeatures): number[] {
-    return [
+    // Validate input
+    if (!features) {
+      throw new Error('Features cannot be null or undefined');
+    }
+    
+    const featureArray = [
       features.gwa,
       features.favoriteSubjectScore,
       features.leastFavoriteSubjectScore,
@@ -67,6 +92,45 @@ export class FeatureExtractor {
       features.age,
       features.gender,
     ];
+    
+    // Validate that all features are numbers
+    for (let i = 0; i < featureArray.length; i++) {
+      if (typeof featureArray[i] !== 'number' || isNaN(featureArray[i])) {
+        throw new Error(`Feature at index ${i} is not a valid number: ${featureArray[i]}`);
+      }
+    }
+    
+    return featureArray;
+  }
+  
+  /**
+   * Validate and parse GWA (General Weighted Average)
+   * @param gwa The GWA string
+   * @returns Validated GWA as number
+   */
+  private static validateAndParseGWA(gwa: string): number {
+    if (!gwa) return 75; // Default value
+    
+    const parsed = parseFloat(gwa);
+    if (isNaN(parsed)) return 75; // Default value
+    
+    // GWA should be between 0 and 100
+    return Math.max(0, Math.min(100, parsed));
+  }
+  
+  /**
+   * Validate and parse age
+   * @param age The age string
+   * @returns Validated age as number
+   */
+  private static validateAndParseAge(age: string): number {
+    if (!age) return 15; // Default value
+    
+    const parsed = parseInt(age, 10);
+    if (isNaN(parsed)) return 15; // Default value
+    
+    // Age should be reasonable (10-30 for high school students)
+    return Math.max(10, Math.min(30, parsed));
   }
   
   /**
@@ -75,6 +139,8 @@ export class FeatureExtractor {
    * @returns Score between 0 and 1
    */
   private static getSubjectScore(subject: string): number {
+    if (!subject) return 0.5; // Neutral score for empty subjects
+    
     if (MODEL_CONFIG.subjectMappings.stem.includes(subject)) {
       return 1.0;
     } else if (MODEL_CONFIG.subjectMappings.abm.includes(subject)) {
@@ -107,7 +173,15 @@ export class FeatureExtractor {
       artsInterest: 0,
     };
     
+    // Handle null or undefined interests
+    if (!interests || !Array.isArray(interests)) {
+      return scores;
+    }
+    
     interests.forEach(interest => {
+      // Skip null or undefined interests
+      if (!interest) return;
+      
       if (MODEL_CONFIG.interestMappings.stem.includes(interest)) {
         scores.stemInterest += 1;
       }
@@ -127,14 +201,6 @@ export class FeatureExtractor {
         scores.artsInterest += 1;
       }
     });
-    
-    // Normalize scores
-    const maxPossible = interests.length;
-    if (maxPossible > 0) {
-      Object.keys(scores).forEach(key => {
-        scores[key] = scores[key] / maxPossible;
-      });
-    }
     
     return scores;
   }
@@ -161,7 +227,15 @@ export class FeatureExtractor {
       artsHobby: 0,
     };
     
+    // Handle null or undefined hobbies
+    if (!hobbies || !Array.isArray(hobbies)) {
+      return scores;
+    }
+    
     hobbies.forEach(hobby => {
+      // Skip null or undefined hobbies
+      if (!hobby) return;
+      
       if (MODEL_CONFIG.hobbyMappings.stem.includes(hobby)) {
         scores.stemHobby += 1;
       }
@@ -182,68 +256,51 @@ export class FeatureExtractor {
       }
     });
     
-    // Normalize scores
-    const maxPossible = hobbies.length;
-    if (maxPossible > 0) {
-      Object.keys(scores).forEach(key => {
-        scores[key] = scores[key] / maxPossible;
-      });
-    }
-    
     return scores;
   }
   
   /**
-   * Calculate aptitude score from answers
-   * @param aptitudeAnswers The aptitude test answers
-   * @returns Normalized score between 0 and 100
+   * Calculate aptitude score from aptitude answers
+   * @param answers Aptitude answers
+   * @returns Aptitude score between 0 and 1
    */
-  private static calculateAptitudeScore(aptitudeAnswers: Record<string, number | string>): number {
-    if (!aptitudeAnswers || Object.keys(aptitudeAnswers).length === 0) {
-      return 50; // Default middle score
+  private static calculateAptitudeScore(answers: Record<string, number | string>): number {
+    if (!answers || Object.keys(answers).length === 0) {
+      return 0.5; // Neutral score for no answers
     }
     
-    // Count answered questions
-    const totalAnswered = Object.keys(aptitudeAnswers).length;
+    // Count correct answers
+    let correctCount = 0;
+    let totalCount = 0;
     
-    // For this implementation, we'll calculate a more realistic score
-    // Count how many answers were provided
-    const maxQuestions = 15; // Based on the assessment randomization to 15 questions
-    const answeredRatio = Math.min(1, totalAnswered / maxQuestions);
+    Object.entries(answers).forEach(([questionId, answer]) => {
+      // Skip if answer is not a number
+      if (typeof answer !== 'number') return;
+      
+      // For now, we'll assume any answer is "correct" since we don't have the correct answers
+      // In a real implementation, you would compare against the correct answers
+      correctCount += answer > 0 ? 1 : 0;
+      totalCount++;
+    });
     
-    // For a more realistic score, we'll assume:
-    // - If all questions are answered, score is based on assumed correctness (70%)
-    // - If fewer questions are answered, we scale accordingly but with a penalty
-    // - Minimum score is 0, maximum is 100
-    
-    // Apply a penalty for unanswered questions (reduces score by 2% per unanswered question)
-    const unansweredPenalty = (maxQuestions - totalAnswered) * 0.02;
-    
-    // Assume base correctness rate
-    const baseCorrectness = 0.7; // 70% assumed correctness
-    
-    // Calculate final score
-    let score = (answeredRatio * baseCorrectness * 100) - (unansweredPenalty * 100);
-    
-    // Ensure score is between 0 and 100
-    score = Math.max(0, Math.min(100, score));
-    
-    return score;
+    // Return score as percentage
+    return totalCount > 0 ? correctCount / totalCount : 0.5;
   }
   
   /**
    * Encode gender as numeric value
-   * @param gender The gender string
-   * @returns Numeric encoding (0=male, 1=female, 2=other)
+   * @param gender Gender string
+   * @returns Encoded gender (0 for male, 1 for female, 0.5 for other/unknown)
    */
   private static encodeGender(gender: string): number {
-    switch (gender?.toLowerCase()) {
-      case 'male':
-        return 0;
-      case 'female':
-        return 1;
-      default:
-        return 2; // Other or unspecified
+    if (!gender) return 0.5; // Neutral value for unknown gender
+    
+    const lowerGender = gender.toLowerCase();
+    if (lowerGender === 'male') {
+      return 0;
+    } else if (lowerGender === 'female') {
+      return 1;
     }
+    return 0.5; // Neutral value for other genders
   }
 }

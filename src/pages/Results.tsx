@@ -27,10 +27,14 @@ import {
   School as SchoolIcon
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { assessmentService } from "@/integrations/supabase/assessmentService";
+import { supabase } from '@/integrations/supabase/client';
 import { Tables } from "@/integrations/supabase/types";
 import { motion } from "framer-motion";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { ModelService } from '@/ml/services/modelService';
+import { IAssessment } from '@/ml/interfaces/IAssessment';
 
 interface StrandResult {
   name: string;
@@ -46,12 +50,15 @@ interface StrandResult {
 const Results = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const { toast } = useToast();
   const [strandResults, setStrandResults] = useState<StrandResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [latestAssessment, setLatestAssessment] = useState<Tables<'assessment_responses'> | null>(null);
   const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
   const [showAllStrands, setShowAllStrands] = useState(false);
+  const [mlModelEnabled, setMlModelEnabled] = useState(false);
+  const [modelService] = useState(new ModelService());
 
   // Check maintenance status on component mount
   useEffect(() => {
@@ -71,6 +78,67 @@ const Results = () => {
 
     checkMaintenanceStatus();
   }, []);
+
+  // Check if ML model is enabled and initialize model service
+  useEffect(() => {
+    const checkMlModelStatus = async () => {
+      try {
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('system_settings')
+          .select('*')
+          .eq('page_name', 'ml_model');
+        
+        if (settingsError) {
+          console.error('Error fetching ML model settings:', settingsError);
+          // Show a toast notification for better user feedback
+          toast({
+            title: "Warning",
+            description: "Failed to fetch ML model settings. Using rule-based recommendations.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // Fix: ML model is enabled when is_under_maintenance is TRUE (consistent with admin dashboard)
+        if (settingsData && settingsData.length > 0) {
+          setMlModelEnabled(settingsData[0].is_under_maintenance || false);
+        }
+      } catch (err) {
+        console.error('Error checking ML model status:', err);
+        // Show a toast notification for better user feedback
+        toast({
+          title: "Warning",
+          description: "Error checking ML model status. Using rule-based recommendations.",
+          variant: "destructive"
+        });
+      }
+    };
+
+    checkMlModelStatus();
+  }, []);
+
+  // Initialize model service
+  useEffect(() => {
+    const initializeModel = async () => {
+      try {
+        // Initialize the model service
+        await modelService.initialize();
+        console.log('Model service initialized successfully');
+      } catch (error) {
+        console.error('Error initializing model service:', error);
+        // Show a toast notification for better user feedback
+        toast({
+          title: "ML Model Error",
+          description: "Failed to initialize ML model. Using rule-based recommendations.",
+          variant: "destructive"
+        });
+      }
+    };
+
+    if (mlModelEnabled) {
+      initializeModel();
+    }
+  }, [mlModelEnabled, modelService]);
 
   // Define strand information with detailed scoring criteria
   const strandInfo: Record<string, Omit<StrandResult, 'match'>> = {
@@ -460,21 +528,67 @@ const Results = () => {
       try {
         setLoading(true);
         const assessments = await assessmentService.getStudentAssessments(profile.id);
-        
+      
         if (assessments && assessments.length > 0) {
           // Get the most recent assessment
           const latest = assessments[0];
           setLatestAssessment(latest);
-          
+        
           let scores: Record<string, number>;
-          
+        
           // Use saved recommendations if available, otherwise calculate and save
           if (latest.recommendations) {
             scores = latest.recommendations as Record<string, number>;
           } else {
-            // Calculate scores
-            scores = await calculateStrandScores(latest);
-            
+            // Check if ML model is enabled
+            if (mlModelEnabled) {
+              try {
+                // Use ML model for predictions
+                console.log("Using ML model for predictions");
+              
+                // Convert to IAssessment format
+                const assessmentData: IAssessment = {
+                  basicInfo: latest.basic_info as IAssessment['basicInfo'],
+                  academicProfile: latest.academic_profile as IAssessment['academicProfile'],
+                  personalInterests: latest.personal_interests as string[],
+                  hobbies: latest.hobbies as string[],
+                  aptitudeAnswers: latest.aptitude_answers as Record<string, number | string>
+                };
+              
+                // Wait for model training to complete before making prediction
+                await modelService.waitForTraining();
+              
+                // Make prediction
+                const prediction = await modelService.predict(assessmentData);
+              
+                // Convert prediction to the format we need
+                scores = {
+                  STEM: prediction.STEM,
+                  ABM: prediction.ABM,
+                  HUMSS: prediction.HUMSS,
+                  GAS: prediction.GAS,
+                  TVL: prediction.TVL,
+                  Arts: prediction.Arts
+                };
+              
+                console.log("ML prediction results:", scores);
+              } catch (mlError) {
+                console.error("ML prediction failed, falling back to rule-based scoring:", mlError);
+                // Show a toast notification for better user feedback
+                toast({
+                  title: "ML Model Error",
+                  description: "ML prediction failed. Falling back to rule-based scoring.",
+                  variant: "destructive"
+                });
+                // Fall back to rule-based scoring if ML fails
+                scores = calculateStrandScores(latest);
+              }
+            } else {
+              // Use rule-based scoring
+              console.log("Using rule-based scoring");
+              scores = calculateStrandScores(latest);
+            }
+          
             // Save recommendations to database
             try {
               await assessmentService.saveRecommendations(latest.id, scores);
@@ -484,7 +598,7 @@ const Results = () => {
               console.error("Failed to save recommendations:", saveError);
             }
           }
-          
+        
           const results = formatResults(scores);
           setStrandResults(results);
         } else {
@@ -499,7 +613,7 @@ const Results = () => {
     };
 
     fetchAssessmentData();
-  }, [user, profile, maintenance?.isUnderMaintenance]);
+  }, [user, profile, maintenance?.isUnderMaintenance, mlModelEnabled, modelService]);
 
   // Get badge variant based on percentage
   const getMatchBadgeVariant = (percentage: number) => {
@@ -634,6 +748,12 @@ const Results = () => {
               <p className="text-muted-foreground max-w-2xl mx-auto">
                 Based on your responses, we've analyzed your interests, aptitudes, and goals to recommend the best SHS strands for you.
               </p>
+              {mlModelEnabled && modelService.isModelReady() && (
+                <Badge variant="secondary" className="mt-2">
+                  <Zap className="h-3 w-3 mr-1" />
+                  ML-Powered Recommendations
+                </Badge>
+              )}
             </motion.div>
 
             {/* Top Recommendation */}
@@ -702,7 +822,7 @@ const Results = () => {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.3, delay: index * 0.1 }}
                           >
-                            <div className="w-2 h-2 bg-success rounded-full" />
+                            <div className="w-2 h-2 bg-primary rounded-full" />
                             <span className="text-sm">{career}</span>
                           </motion.div>
                         ))}
@@ -713,157 +833,127 @@ const Results = () => {
               </Card>
             </motion.div>
 
-            {/* All Results */}
+            {/* All Recommendations */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <h2 className="text-2xl font-bold mb-6">Complete Results Breakdown</h2>
-              {/* Keeping the same layout (3 cards in one line) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(showAllStrands ? strandResults : strandResults.slice(0, 3)).map((strand, index) => (
-                  <motion.div
-                    key={strand.name}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                  >
-                    <Card className="hover:shadow-md transition-shadow h-full">
-                      <CardContent className="p-6 flex flex-col items-center text-center">
-                        <div className="flex items-center justify-center w-12 h-12 bg-muted/50 rounded-lg mb-3">
-                          <div className={strand.color}>
-                            {strand.icon}
-                          </div>
-                        </div>
-                        <h3 className="text-lg font-semibold mb-1">{strand.name}</h3>
-                        <p className="text-sm text-muted-foreground mb-3">{strand.fullName}</p>
-                        
-                        {/* Changed back to linear progress bar */}
-                        <div className="w-full mb-3">
-                          <Progress value={strand.match} className="mb-1" />
-                          <div className="text-right text-sm font-medium text-primary">{Math.round(strand.match)}%</div>
-                        </div>
-                        
-                        <Badge variant={getMatchBadgeVariant(strand.match)} className="mb-3">
-                          {getMatchBadgeText(strand.match)}
-                        </Badge>
-                        
-                        <p className="text-sm text-muted-foreground mb-3">{strand.description}</p>
-                        
-                        <div className="flex flex-wrap gap-1 justify-center">
-                          {strand.careers.slice(0, 2).map((career, careerIndex) => (
-                            <Badge key={careerIndex} variant="outline" className="text-xs">
-                              {career}
-                            </Badge>
-                          ))}
-                          {strand.careers.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{strand.careers.length - 2} more
-                            </Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-              {strandResults.length > 3 && (
-                <div className="flex justify-center mt-4">
-                  <Button variant="outline" onClick={() => setShowAllStrands((prev) => !prev)}>
-                    {showAllStrands ? "Show Less" : "Show More"}
-                  </Button>
-                </div>
-              )}
-            </motion.div>
-
-            {/* Actions - keeping the shortened buttons layout */}
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 mt-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-            >
-              <Button variant="hero" className="h-10 group">
-                <Download className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                Download PDF
-              </Button>
-              <Button variant="outline" className="h-10 group">
-                <Share className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                Share
-              </Button>
-              <Link to="/assessment">
-                <Button variant="outline" className="w-full h-10 group">
-                  <RotateCcw className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" />
-                  Retake
-                </Button>
-              </Link>
-            </motion.div>
-
-            {/* Next Steps */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-            >
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Zap className="h-5 w-5 mr-2 text-primary" />
-                    What's Next?
-                  </CardTitle>
-                  <CardDescription>
-                    Now that you know your recommended strand, here are your next steps:
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center">
+                        <SchoolIcon className="h-5 w-5 mr-2" />
+                        All Strand Recommendations
+                      </CardTitle>
+                      <CardDescription>
+                        Detailed breakdown of all SHS strand matches based on your assessment
+                      </CardDescription>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowAllStrands(!showAllStrands)}
+                    >
+                      {showAllStrands ? "Show Less" : "Show All"}
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">1</div>
-                        <div>
-                          <h4 className="font-medium">Explore Career Paths</h4>
-                          <p className="text-sm text-muted-foreground">Learn more about specific careers in your recommended strand.</p>
+                  <div className="space-y-6">
+                    {(showAllStrands ? strandResults : strandResults.slice(0, 3)).map((strand, index) => (
+                      <motion.div
+                        key={strand.name}
+                        className="border rounded-lg p-4"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-2 rounded-lg bg-primary/10 ${strand.color}`}>
+                              {strand.icon}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg">{strand.name}</h3>
+                              <p className="text-sm text-muted-foreground">{strand.fullName}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xl font-bold text-foreground">{strand.match}%</div>
+                            <Badge variant={getMatchBadgeVariant(strand.match)}>
+                              {getMatchBadgeText(strand.match)}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-start space-x-3">
-                        <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">2</div>
-                        <div>
-                          <h4 className="font-medium">Research Schools</h4>
-                          <p className="text-sm text-muted-foreground">Find schools that offer strong programs in your chosen strand.</p>
+                        
+                        <p className="text-foreground mb-4">{strand.description}</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="font-medium mb-2 flex items-center">
+                              <BookOpen className="h-4 w-4 mr-2" />
+                              Key Subjects
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {strand.subjects.slice(0, 3).map((subject, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  {subject}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <h4 className="font-medium mb-2 flex items-center">
+                              <TrendingUp className="h-4 w-4 mr-2" />
+                              Career Paths
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {strand.careers.slice(0, 3).map((career, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {career}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">3</div>
-                        <div>
-                          <h4 className="font-medium">Speak with a Counselor</h4>
-                          <p className="text-sm text-muted-foreground">Discuss your results with a guidance counselor for personalized advice.</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <Link to="/careers">
-                          <Button variant="outline" className="w-full group">
-                            Explore Career Paths
-                            <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                          </Button>
-                        </Link>
-                        <Link to="/schools">
-                          <Button variant="outline" className="w-full group">
-                            View Schools
-                            <SchoolIcon className="h-4 w-4 ml-2 group-hover:scale-110 transition-transform" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
+                      </motion.div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
+
+            {/* Action Buttons */}
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-4 mt-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              <Button className="flex-1" asChild>
+                <Link to="/careers">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Explore Career Paths
+                </Link>
+              </Button>
+              <Button variant="outline" className="flex-1" asChild>
+                <Link to="/schools">
+                  <SchoolIcon className="h-4 w-4 mr-2" />
+                  Find Schools
+                </Link>
+              </Button>
+              <Button variant="outline" className="flex-1" asChild>
+                <Link to="/dashboard">
+                  <Award className="h-4 w-4 mr-2" />
+                  View Dashboard
+                </Link>
+              </Button>
+            </motion.div>
           </div>
         </main>
-
         <Footer />
         <ScrollToTop />
       </div>

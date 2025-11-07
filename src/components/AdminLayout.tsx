@@ -14,15 +14,16 @@ import {
   User,
   ChevronDown,
   Settings,
-  Shield
+  Shield,
+  Cpu
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  activeSection: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings';
-  setActiveSection: (section: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings') => void;
+  activeSection: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model';
+  setActiveSection: (section: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model') => void;
 }
 
 export const AdminLayout = ({ children, activeSection, setActiveSection }: AdminLayoutProps) => {
@@ -98,6 +99,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
     { id: 'students', label: 'Students', icon: Users },
     { id: 'schools', label: 'Schools', icon: School },
     { id: 'questions', label: 'Questions', icon: BookOpen },
+    { id: 'ml-model', label: 'ML Model', icon: Cpu },
     { id: 'settings', label: 'System Settings', icon: Settings },
   ];
 
@@ -106,7 +108,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
     if (window.location.pathname !== '/admin/dashboard') {
       navigate('/admin/dashboard');
     }
-    setActiveSection(itemId as 'dashboard' | 'students' | 'schools' | 'questions' | 'settings');
+    setActiveSection(itemId as 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model');
     setSidebarOpen(false);
   };
 

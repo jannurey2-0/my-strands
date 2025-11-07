@@ -1,20 +1,46 @@
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Users, School, BookOpen, Plus, TrendingUp, FileText, Building, HelpCircle, Settings, Eye } from 'lucide-react';
+import ErrorBoundary from "@/components/ErrorBoundary";
+import ChartErrorBoundary from "@/components/ChartErrorBoundary";
+import { AdminLayout } from "@/components/AdminLayout";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import logger from "@/lib/logger";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Eye } from "lucide-react";
+import { 
+  Users, 
+  School, 
+  BookOpen, 
+  BarChart3, 
+  Settings,
+  Cpu,
+  AlertCircle
+} from "lucide-react";
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import QuestionManagement from '@/components/QuestionManagement';
-import { AdminLayout } from '@/components/AdminLayout';
-import SystemSettings from './SystemSettings';
-import { SchoolsManagement } from '@/components/SchoolsManagement';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
-import logger from '@/lib/logger';
+import { SchoolsManagement } from "@/components/SchoolsManagement";
+import QuestionManagement from "@/components/QuestionManagement";
+import SystemSettings from "@/pages/SystemSettings";
+import { MLModelManagement } from "@/components/MLModelManagement";
 
 interface Stats {
   totalStudents: number;
@@ -228,7 +254,7 @@ export default function AdminDashboard() {
   const [questions, setQuestions] = useState<AptitudeQuestion[]>([]);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<'dashboard' | 'students' | 'schools' | 'questions' | 'settings'>('dashboard');
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model'>('dashboard');
 
   // Fetch dashboard stats
   const fetchStats = async () => {
@@ -316,188 +342,179 @@ export default function AdminDashboard() {
     switch (activeSection) {
       case 'dashboard':
         return (
-          <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-foreground">Dashboard Overview</h1>
-              <p className="text-muted-foreground">Welcome back, {profile?.full_name}. Here's what's happening today.</p>
+          <ErrorBoundary>
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+                <p className="text-muted-foreground">Overview of system statistics and activities</p>
+              </div>
+              
+              {loading ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {[...Array(4)].map((_, i) => (
+                    <Skeleton key={i} className="h-32 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.totalStudents}</div>
+                      <p className="text-xs text-muted-foreground">Registered students</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Assessments</CardTitle>
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.totalAssessments}</div>
+                      <p className="text-xs text-muted-foreground">Completed assessments</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Schools</CardTitle>
+                      <School className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.totalSchools}</div>
+                      <p className="text-xs text-muted-foreground">Partner schools</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Questions</CardTitle>
+                      <BookOpen className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.totalQuestions}</div>
+                      <p className="text-xs text-muted-foreground">Aptitude questions</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+              
+              <div className="grid gap-4 md:grid-cols-2">
+                <ChartErrorBoundary chartTitle="Student Activity">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Activity</CardTitle>
+                      <CardDescription>Latest student assessments</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-80 flex items-center justify-center">
+                        <div className="text-center">
+                          <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-foreground mb-2">Activity Chart</h3>
+                          <p className="text-sm text-muted-foreground">Chart implementation pending</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </ChartErrorBoundary>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>System Status</CardTitle>
+                    <CardDescription>Current system health</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Database</span>
+                        <Badge variant="secondary">Operational</Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Authentication</span>
+                        <Badge variant="secondary">Operational</Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">API</span>
+                        <Badge variant="secondary">Operational</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card className="hover:shadow-lg transition-all duration-300 border-primary/20 border-2">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Users className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.totalStudents}</div>
-                      <div className="text-xs text-muted-foreground">Students</div>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3 mr-1 text-success" />
-                    <span>+12% from last month</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all duration-300 border-secondary/20 border-2">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-secondary-foreground" />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.totalAssessments}</div>
-                      <div className="text-xs text-muted-foreground">Assessments</div>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3 mr-1 text-success" />
-                    <span>+8% from last month</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all duration-300 border-accent/20 border-2">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
-                      <Building className="w-5 h-5 text-accent-foreground" />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.totalSchools}</div>
-                      <div className="text-xs text-muted-foreground">Schools</div>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3 mr-1 text-success" />
-                    <span>+3% from last month</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all duration-300 border-muted/20 border-2">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                      <HelpCircle className="w-5 h-5" />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.totalQuestions}</div>
-                      <div className="text-xs text-muted-foreground">Questions</div>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3 mr-1 text-success" />
-                    <span>+5% from last month</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="hover:shadow-lg transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Users className="w-5 h-5 text-primary" />
-                    </div>
-                    Student Management
-                  </CardTitle>
-                  <CardDescription>
-                    View and manage student profiles and assessment results
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full" onClick={() => setActiveSection('students')}>
-                    Manage Students
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
-                      <Building className="w-5 h-5 text-secondary-foreground" />
-                    </div>
-                    Schools & Strands
-                  </CardTitle>
-                  <CardDescription>
-                    Add and manage schools and their available strands
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="secondary" className="w-full" onClick={() => setActiveSection('schools')}>
-                    Manage Schools
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
-                      <HelpCircle className="w-5 h-5 text-accent-foreground" />
-                    </div>
-                    Assessment Questions
-                  </CardTitle>
-                  <CardDescription>
-                    Create and manage aptitude test questions for students
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full" onClick={() => setActiveSection('questions')}>
-                    Manage Questions
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                      <Settings className="w-5 h-5" />
-                    </div>
-                    System Settings
-                  </CardTitle>
-                  <CardDescription>
-                    Configure system-wide settings and maintenance modes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="ghost" className="w-full" onClick={() => setActiveSection('settings')}>
-                    Configure Settings
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </>
+          </ErrorBoundary>
+        );
+        
+      case 'students':
+        return (
+          <ErrorBoundary>
+            <StudentsManagement />
+          </ErrorBoundary>
+        );
+        
+      case 'schools':
+        return (
+          <ErrorBoundary>
+            <SchoolsManagement />
+          </ErrorBoundary>
+        );
+        
+      case 'questions':
+        return (
+          <ErrorBoundary>
+            <QuestionManagement 
+              questions={questions} 
+              onRefresh={fetchQuestions}
+            />
+          </ErrorBoundary>
+        );
+        
+      case 'settings':
+        return (
+          <ErrorBoundary>
+            <SystemSettings />
+          </ErrorBoundary>
         );
       
-      case 'questions':
-        return <QuestionManagement questions={questions} onRefresh={fetchQuestions} />;
-      
-      case 'students':
-        return <StudentsManagement />;
-      
-      case 'schools':
-        return <SchoolsManagement />;
-      
-      case 'settings':
-        return <SystemSettings />;
-      
+      case 'ml-model':
+        return (
+          <ErrorBoundary 
+            fallback={
+              <Card className="border-destructive/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-destructive">
+                    <AlertCircle className="h-5 w-5" />
+                    ML Model Error
+                  </CardTitle>
+                  <CardDescription>
+                    There was an error loading the ML Model Management component.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    The ML Model Management section is currently unavailable. Please try again later.
+                  </p>
+                  <Button onClick={() => window.location.reload()}>
+                    Refresh Page
+                  </Button>
+                </CardContent>
+              </Card>
+            }
+          >
+            <MLModelManagement />
+          </ErrorBoundary>
+        );
+        
       default:
-        return null;
+        return (
+          <ErrorBoundary>
+            <div>Section not implemented</div>
+          </ErrorBoundary>
+        );
     }
   };
 

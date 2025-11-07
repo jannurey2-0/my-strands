@@ -1,30 +1,38 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
-// Get the directory name of the current module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
 
-// Load environment variables from the project root
-const envPath = path.join(__dirname, '../../..', '.env');
-dotenv.config({ path: envPath });
+// In browser environment, use the same environment variables as the main app
+// In Node.js environment, load from .env file
+let SUPABASE_URL: string | undefined;
+let SUPABASE_KEY: string | undefined;
 
-// Debug: Log environment variables to verify they're loaded
-console.log('ML Supabase Client - VITE_SUPABASE_URL:', process.env.VITE_SUPABASE_URL ? 'Loaded' : 'Not found');
-console.log('ML Supabase Client - VITE_SUPABASE_PUBLISHABLE_KEY:', process.env.VITE_SUPABASE_PUBLISHABLE_KEY ? 'Loaded' : 'Not found');
-console.log('ML Supabase Client - VITE_SUPABASE_SERVICE_ROLE_KEY:', process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'Loaded' : 'Not found (will use publishable key)');
-console.log('Env file path:', envPath);
-
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-// Use service role key if available, otherwise fall back to publishable key
-const SUPABASE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+if (isBrowser) {
+  // Browser environment - use import.meta.env (Vite) or window.env
+  SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || (window as any).env?.VITE_SUPABASE_URL;
+  // IMPORTANT: Only use publishable key in browser to avoid exposing service role key
+  SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 
+                 (window as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY;
+} else {
+  // Node.js environment - try to get from process.env directly
+  // Note: dotenv should be loaded at the application entry point, not here
+  SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+  // Use service role key only in Node.js environment for ML operations
+  SUPABASE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+}
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
     throw new Error("Missing Supabase environment variables. Define VITE_SUPABASE_URL and either VITE_SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_PUBLISHABLE_KEY in your .env file.");
+}
+
+// Add validation to ensure service role key is only used in Node.js environment
+if (isBrowser && SUPABASE_KEY?.includes('service_role')) {
+  console.warn('WARNING: Service role key detected in browser environment. This is a security risk.');
+  // Fall back to publishable key if somehow service role key made it to browser
+  SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 
+                  (window as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY;
 }
 
 export const supabase = createClient<Database>(

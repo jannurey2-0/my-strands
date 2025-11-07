@@ -110,6 +110,43 @@ export const assessmentService = {
     }
   },
 
+  // Get or create an assessment attempt for a student
+  getOrCreateAssessmentAttempt: async () => {
+    try {
+      // First get the current user's profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .single();
+
+      if (profileError) throw profileError;
+      if (!profileData) throw new Error('User profile not found');
+
+      logger.debug('Calling get_or_create_assessment_attempt with profile ID:', { profileId: profileData.id });
+
+      // Call the database function to get or create an assessment attempt
+      const { data: attemptData, error: attemptError } = await (supabase as any)
+        .rpc('get_or_create_assessment_attempt', { 
+          p_student_id: profileData.id  // Changed to match the function parameter name
+        })
+        .single();
+
+      if (attemptError) {
+        logger.error('Error calling get_or_create_assessment_attempt:', attemptError);
+        throw attemptError;
+      }
+
+      if (!attemptData) throw new Error('Failed to create assessment attempt');
+
+      logger.debug('Assessment attempt ID:', { attemptId: attemptData });
+
+      return attemptData;
+    } catch (error) {
+      logger.error('Error in getOrCreateAssessmentAttempt:', error);
+      throw error;
+    }
+  },
+
   // Get or create an assessment attempt and return the questions
   getAptitudeQuestions: async (studentId: string) => {
     try {
@@ -178,9 +215,6 @@ export const assessmentService = {
         .select('*')
         .in('id', attempt.question_ids || []);
         
-      logger.debug('Query result - Data:', { data: questionsData });
-      logger.debug('Query result - Error:', { error: questionsError });
-
       if (questionsError) {
         logger.error('Error fetching aptitude questions from database:', questionsError);
         throw questionsError;
@@ -188,7 +222,7 @@ export const assessmentService = {
 
       // Log if no questions were found
       if (!questionsData || questionsData.length === 0) {
-        logger.warn('No aptitude questions found for attempt:', { attempt });
+        logger.warn('No aptitude questions found for attempt');
         
         // Let's also check what questions exist in the database
         const { data: allQuestions, error: allQuestionsError } = await supabase
@@ -197,23 +231,14 @@ export const assessmentService = {
           
         if (allQuestionsError) {
           logger.error('Error fetching all questions for debugging:', allQuestionsError);
-        } else {
-          logger.debug('All questions in database:', { 
-            questions: allQuestions, 
-            count: allQuestions?.length 
-          });
         }
         
         // Check if any of the question IDs exist
         const existingQuestionIds = allQuestions?.map(q => q.id) || [];
         const missingIds = (attempt.question_ids || []).filter(id => !existingQuestionIds.includes(id));
-        logger.debug('Missing question IDs:', { missingIds });
+        logger.debug('Missing question IDs count:', { count: missingIds.length });
       }
 
-      // Log raw data for debugging
-      logger.debug('Raw questions data from database:', { questionsData });
-      logger.debug('Attempt question IDs:', { questionIds: attempt.question_ids });
-      
       // Transform the data to match our interface and randomize the order
       let questions = (questionsData || [])
         .sort((a, b) => {
@@ -232,8 +257,6 @@ export const assessmentService = {
           attempt_id: attempt.id
         }));
 
-      logger.debug('Mapped questions before randomization:', { questions });
-      
       // Check if we got any questions
       if (questions.length === 0) {
         logger.warn('No questions found for the attempt. This might be due to a mismatch between attempt question IDs and database question IDs.');
@@ -246,7 +269,6 @@ export const assessmentService = {
         if (allQuestionsError) {
           logger.error('Error fetching fallback questions:', allQuestionsError);
         } else if (allQuestions && allQuestions.length > 0) {
-          logger.debug('Using fallback questions:', { questions: allQuestions });
           questions = allQuestions.map((q: any) => ({
             id: q.id,
             question: q.question,
@@ -265,7 +287,6 @@ export const assessmentService = {
         .sort(() => Math.random() - 0.5) // Shuffle the questions
         .slice(0, 15); // Limit to 15 questions
 
-      logger.debug('Final questions after randomization:', { questions });
       return questions;
     } catch (error) {
       logger.error('Error in getAptitudeQuestions:', error);
@@ -337,10 +358,22 @@ export const assessmentService = {
   // Save strand recommendations for an assessment
   saveRecommendations: async (assessmentId: string, recommendations: Record<string, number>) => {
     try {
+      // Find the strand with the highest percentage
+      let highestStrand = '';
+      let highestPercentage = 0;
+      
+      Object.entries(recommendations).forEach(([strand, percentage]) => {
+        if (percentage > highestPercentage) {
+          highestPercentage = percentage;
+          highestStrand = strand;
+        }
+      });
+      
       const { data, error } = await supabase
         .from('assessment_responses')
         .update({
-          recommendations: recommendations
+          recommendations: recommendations,
+          actual_strand: highestStrand
         })
         .eq('id', assessmentId)
         .select()

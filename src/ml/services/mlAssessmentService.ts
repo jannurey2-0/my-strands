@@ -20,6 +20,7 @@ export interface MLAssessmentData {
   hobbies: string[];
   aptitudeAnswers: Record<string, number | string>;
   recommendations?: Record<string, number> | null;
+  actualStrand?: string;
 }
 
 export const mlAssessmentService = {
@@ -27,6 +28,12 @@ export const mlAssessmentService = {
   getAllAssessments: async () => {
     try {
       console.log('Fetching data from assessment_responses table...');
+      
+      // Check if supabase client is properly initialized
+      if (!supabase) {
+        throw new Error('Supabase client not initialized');
+      }
+      
       const { data, error } = await supabase
         .from('assessment_responses')
         .select('*')
@@ -34,18 +41,19 @@ export const mlAssessmentService = {
 
       if (error) {
         console.error('Supabase error:', error);
-        throw error;
+        throw new Error(`Failed to fetch assessment data: ${error.message}`);
       }
       
       console.log(`Found ${data?.length || 0} assessment records`);
-      if (data && data.length > 0) {
-        console.log('First record:', JSON.stringify(data[0], null, 2));
-      }
+      // Removed sensitive data logging
+      // if (data && data.length > 0) {
+      //   console.log('First record:', JSON.stringify(data[0], null, 2));
+      // }
       
       return data;
     } catch (error) {
       logger.error('Error in getAllAssessments:', error);
-      throw error;
+      throw new Error(`Failed to fetch assessment data: ${(error as Error).message}`);
     }
   },
 };

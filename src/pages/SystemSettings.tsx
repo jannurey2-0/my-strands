@@ -44,6 +44,11 @@ export default function SystemSettings() {
       const setting = settings.find(s => s.page_name === pageName);
       const maintenanceMessage = setting?.maintenance_message || 'Currently Under Development';
       
+      toast({
+        title: "Updating Settings",
+        description: `Setting ${getPageDisplayName(pageName)} to ${isUnderMaintenance ? 'maintenance mode' : 'active'}...`
+      });
+      
       await assessmentService.updateSystemSetting(pageName, isUnderMaintenance, maintenanceMessage);
       
       // Update local state
@@ -55,13 +60,13 @@ export default function SystemSettings() {
       
       toast({
         title: "Success",
-        description: `Maintenance mode ${isUnderMaintenance ? 'enabled' : 'disabled'} for ${pageName} page`
+        description: `Maintenance mode ${isUnderMaintenance ? 'enabled' : 'disabled'} for ${getPageDisplayName(pageName)} page`
       });
     } catch (error) {
       console.error('Error updating system setting:', error);
       toast({
         title: "Error",
-        description: "Failed to update system setting",
+        description: `Failed to update system setting for ${getPageDisplayName(pageName)}: ${(error as Error).message}`,
         variant: "destructive"
       });
     } finally {
@@ -75,6 +80,11 @@ export default function SystemSettings() {
       const setting = settings.find(s => s.page_name === pageName);
       const isUnderMaintenance = setting?.is_under_maintenance || false;
       
+      toast({
+        title: "Updating Message",
+        description: `Updating maintenance message for ${getPageDisplayName(pageName)}...`
+      });
+      
       await assessmentService.updateSystemSetting(pageName, isUnderMaintenance, message);
       
       // Update local state
@@ -86,13 +96,13 @@ export default function SystemSettings() {
       
       toast({
         title: "Success",
-        description: `Maintenance message updated for ${pageName} page`
+        description: `Maintenance message updated for ${getPageDisplayName(pageName)} page`
       });
     } catch (error) {
       console.error('Error updating system setting:', error);
       toast({
         title: "Error",
-        description: "Failed to update maintenance message",
+        description: `Failed to update maintenance message for ${getPageDisplayName(pageName)}: ${(error as Error).message}`,
         variant: "destructive"
       });
     } finally {
@@ -105,9 +115,14 @@ export default function SystemSettings() {
       'schools': 'Schools',
       'careers': 'Careers',
       'results': 'Results',
-      'assessment': 'Assessment'
+      'assessment': 'Assessment',
+      'ml_model': 'ML Model'
     };
     return displayNameMap[pageName] || pageName;
+  };
+
+  const isMLModelSetting = (pageName: string) => {
+    return pageName === 'ml_model';
   };
 
   if (loading) {
@@ -141,49 +156,114 @@ export default function SystemSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {settings.map((setting) => (
-            <div key={setting.page_name} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-lg">
-              <div className="flex-1">
-                <h3 className="font-medium text-foreground">{getPageDisplayName(setting.page_name)}</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {setting.is_under_maintenance 
-                    ? "Currently under maintenance" 
-                    : "Available to students"}
-                </p>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id={`maintenance-${setting.page_name}`}
-                    checked={setting.is_under_maintenance}
-                    onCheckedChange={(checked) => handleToggleMaintenance(setting.page_name, checked)}
-                    disabled={saving}
-                  />
-                  <Label htmlFor={`maintenance-${setting.page_name}`}>
-                    {setting.is_under_maintenance ? "Under Maintenance" : "Active"}
-                  </Label>
+          {settings
+            .filter(setting => !isMLModelSetting(setting.page_name)) // Filter out ML model settings for separate handling
+            .map((setting) => (
+              <div key={setting.page_name} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-lg">
+                <div className="flex-1">
+                  <h3 className="font-medium text-foreground">{getPageDisplayName(setting.page_name)}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {setting.is_under_maintenance 
+                      ? "Currently under maintenance" 
+                      : "Available to students"}
+                  </p>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={setting.maintenance_message || ''}
-                    onChange={(e) => handleUpdateMessage(setting.page_name, e.target.value)}
-                    placeholder="Maintenance message"
-                    className="w-64"
-                    disabled={saving}
-                  />
-                  <Button 
-                    size="sm" 
-                    onClick={() => handleUpdateMessage(setting.page_name, setting.maintenance_message || '')}
-                    disabled={saving}
-                  >
-                    Save
-                  </Button>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id={`maintenance-${setting.page_name}`}
+                      checked={setting.is_under_maintenance}
+                      onCheckedChange={(checked) => handleToggleMaintenance(setting.page_name, checked)}
+                      disabled={saving}
+                    />
+                    <Label htmlFor={`maintenance-${setting.page_name}`}>
+                      {setting.is_under_maintenance ? "Under Maintenance" : "Active"}
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={setting.maintenance_message || ''}
+                      onChange={(e) => handleUpdateMessage(setting.page_name, e.target.value)}
+                      placeholder="Maintenance message"
+                      className="w-64"
+                      disabled={saving}
+                    />
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleUpdateMessage(setting.page_name, setting.maintenance_message || '')}
+                      disabled={saving}
+                    >
+                      Save
+                    </Button>
+                  </div>
                 </div>
               </div>
+            ))}
+        </CardContent>
+      </Card>
+
+      {/* ML Model Settings Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>ML Model Settings</CardTitle>
+          <CardDescription>
+            Control the machine learning model used for strand recommendations
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {settings
+            .filter(setting => isMLModelSetting(setting.page_name))
+            .map((setting) => (
+              <div key={setting.page_name} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-lg">
+                <div className="flex-1">
+                  <h3 className="font-medium text-foreground">{getPageDisplayName(setting.page_name)}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {setting.is_under_maintenance 
+                      ? "ML model enabled for strand recommendations" 
+                      : "ML model disabled, using rule-based system"}
+                  </p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id={`maintenance-${setting.page_name}`}
+                      checked={setting.is_under_maintenance}
+                      onCheckedChange={(checked) => handleToggleMaintenance(setting.page_name, checked)}
+                      disabled={saving}
+                    />
+                    <Label htmlFor={`maintenance-${setting.page_name}`}>
+                      {setting.is_under_maintenance ? "Enabled" : "Disabled"}
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={setting.maintenance_message || ''}
+                      onChange={(e) => handleUpdateMessage(setting.page_name, e.target.value)}
+                      placeholder="Status message"
+                      className="w-64"
+                      disabled={saving}
+                    />
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleUpdateMessage(setting.page_name, setting.maintenance_message || '')}
+                      disabled={saving}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          
+          {settings.filter(setting => isMLModelSetting(setting.page_name)).length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              ML model settings not found. Please ensure the database migration has been applied.
             </div>
-          ))}
+          )}
         </CardContent>
       </Card>
 

@@ -14,14 +14,15 @@ const envPath = path.join(__dirname, '../../..', '.env');
 dotenv.config({ path: envPath });
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Use service role key if available for full access, otherwise fall back to publishable key
+const SUPABASE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error("Missing Supabase environment variables. Define VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your .env file.");
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+    throw new Error("Missing Supabase environment variables. Define VITE_SUPABASE_URL and either VITE_SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_PUBLISHABLE_KEY in your .env file.");
 }
 
-// Create a Supabase client similar to the web app but for Node.js
-const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// Create a Supabase client with service role key for full access
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function checkData() {
   console.log('Checking database data...');

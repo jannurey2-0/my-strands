@@ -30,7 +30,7 @@ const DatabaseTest = () => {
         console.log("Attempting to call get_or_create_assessment_attempt with p_student_id:", profile.id);
         const { data: attemptId, error: attemptError } = await (supabase as any)
           .rpc('get_or_create_assessment_attempt', { 
-            p_student_id: profile.id  // Changed from student_id to p_student_id
+            p_student_id: profile.id  // Changed from student_id to p_student_id to match function definition
           })
           .single();
           

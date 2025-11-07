@@ -59,19 +59,59 @@ const validateEmail = (email: string): { isValid: boolean; message: string } => 
     'temp-mail.org', 'disposablemail.com', 'trashmail.com', 'fakeinbox.com'
   ];
 
-  const domain = email.split('@')[1]?.toLowerCase();
-  if (disposableDomains.includes(domain)) {
+  const [localPart, domain] = email.split('@');
+  const lowerDomain = domain.toLowerCase();
+  
+  if (disposableDomains.includes(lowerDomain)) {
     return { isValid: false, message: "Please use a valid institutional or personal email address." };
   }
 
-  // Check for obviously fake emails
-  const fakeEmailPatterns = [
-    'asdf', 'qwer', 'zxcv', 'test', 'dummy', 'fake', 'example', 'dfandfanda'
-  ];
+  // Enhanced validation for common email providers
+  if (['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com'].includes(lowerDomain)) {
+    // Check if local part is too short
+    if (localPart.length < 3) {
+      return { isValid: false, message: "Email address appears to be invalid." };
+    }
 
-  const localPart = email.split('@')[0]?.toLowerCase();
-  if (fakeEmailPatterns.some(pattern => localPart.includes(pattern))) {
-    return { isValid: false, message: "Please use a real email address." };
+    // Check for too many repeated characters
+    const repeatedCharPattern = /(.)\1{2,}/;
+    if (repeatedCharPattern.test(localPart)) {
+      return { isValid: false, message: "Email address appears to be invalid." };
+    }
+
+    // Check for obviously fake patterns
+    const fakePatterns = [
+      'asdf', 'qwer', 'zxcv', 'test', 'dummy', 'fake', 'example', 'dfandfanda',
+      'aaaa', '1234', 'abcd', 'qwerty', 'fawefdsdsdwwaaf'
+    ];
+
+    const lowerLocalPart = localPart.toLowerCase();
+    if (fakePatterns.some(pattern => lowerLocalPart.includes(pattern))) {
+      return { isValid: false, message: "Please use a real email address." };
+    }
+
+    // Check for random character sequences (more than 5 consecutive consonants or vowels)
+    const consonantCluster = /[bcdfghjklmnpqrstvwxyz]{6,}/i;
+    const vowelCluster = /[aeiou]{4,}/i;
+    
+    if (consonantCluster.test(localPart) || vowelCluster.test(localPart)) {
+      return { isValid: false, message: "Email address appears to be invalid." };
+    }
+
+    // Check if it looks like a real name pattern (firstname.lastname or similar)
+    const validPattern = /^[a-zA-Z]+([._-][a-zA-Z]+)*$/;
+    if (!validPattern.test(localPart)) {
+      // Allow some common patterns even if they don't match the strict pattern
+      const allowedPatterns = [
+        /\d+[a-zA-Z]/, // Numbers followed by letters (like 2023john)
+        /[a-zA-Z]+\d+/, // Letters followed by numbers (like john123)
+      ];
+      
+      const isAllowedPattern = allowedPatterns.some(pattern => pattern.test(localPart));
+      if (!isAllowedPattern) {
+        return { isValid: false, message: "Email address appears to be invalid." };
+      }
+    }
   }
 
   return { isValid: true, message: "" };
@@ -235,9 +275,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      const profile = await fetchWithTimeout(1);
-      safeSetAuthState({ profile, loading: false });
-      return profile;
+      try {
+        const profile = await fetchWithTimeout(1);
+        safeSetAuthState({ profile, loading: false });
+        return profile;
+      } catch (error) {
+        console.error("Profile fetch failed after all retries:", error);
+        // Even if profile fetch fails, we should not block the authentication flow
+        safeSetAuthState({ loading: false });
+        return null;
+      }
     },
     [safeSetAuthState, createProfile]
   );
@@ -273,10 +320,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (import.meta.env.DEV) {
             console.log("User authenticated:", session.user.id);
           }
-          safeSetAuthState({ session, user: session.user });
+          safeSetAuthState({ session, user: session.user, loading: false });
+          
+          // Fetch profile in background without blocking
           fetchProfile(session.user.id, session.user).catch((err) => {
             console.error("Profile fetch error during init:", err);
-            safeSetAuthState({ loading: false });
+            // Don't set loading to false here as it's already false
           });
         } else {
           safeSetAuthState({
@@ -306,16 +355,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         safeSetAuthState({
           session,
-          user: session?.user ?? null
+          user: session?.user ?? null,
+          loading: false // Always set loading to false on auth state change
         });
 
         if (session?.user) {
+          // Fetch profile in background without blocking
           fetchProfile(session.user.id, session.user).catch((err) => {
             console.error("Profile fetch error:", err);
-            safeSetAuthState({ loading: false });
+            // Don't set loading to false here as it's already false
           });
         } else {
-          safeSetAuthState({ profile: null, loading: false });
+          safeSetAuthState({ profile: null });
         }
       }
     );
@@ -439,30 +490,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = await supabase.auth.getSession();
 
       if (error) {
-        safeSetAuthState({ user: null, session: null, profile: null });
+        safeSetAuthState({ user: null, session: null, profile: null, loading: false });
       } else {
         safeSetAuthState({
           session,
-          user: session?.user ?? null
+          user: session?.user ?? null,
+          loading: false
         });
 
         if (session?.user) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("user_id", session.user.id as any)
-            .maybeSingle();
-
-          safeSetAuthState({ profile: (profileData as any) || null });
+          // Fetch profile in background without blocking using the existing fetchProfile function
+          fetchProfile(session.user.id, session.user).catch((err) => {
+            console.error("Profile fetch error during refresh:", err);
+            // Don't set loading to false here as it's already false
+          });
         } else {
           safeSetAuthState({ profile: null });
         }
       }
     } catch (err) {
       console.error("Error refreshing auth state:", err);
-      safeSetAuthState({ user: null, session: null, profile: null });
-    } finally {
-      safeSetAuthState({ loading: false });
+      // Ensure loading state is always reset even on error
+      safeSetAuthState({ user: null, session: null, profile: null, loading: false });
     }
   };
 
