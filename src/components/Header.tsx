@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { User, Menu, X, GraduationCap } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -66,20 +66,12 @@ export const Header = () => {
 
   // Additional effect to ensure mobile menu is closed after navigation
   useEffect(() => {
-    const closeMenu = () => {
-      if (mobileMenuOpen) {
-        setMobileMenuOpen(false);
-      }
-    };
-    
-    // Close menu on route change
-    closeMenu();
-    
-    // Cleanup function
-    return () => {
-      closeMenu();
-    };
-  }, [location.pathname, mobileMenuOpen]);
+    // Only close the menu if we're not already closing it
+    if (mobileMenuOpen) {
+      // Close menu on route change
+      setMobileMenuOpen(false);
+    }
+  }, [location.pathname]);
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -345,7 +337,12 @@ export const Header = () => {
             {/* Mobile menu button */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="md:hidden"
+                  onClick={() => setMobileMenuOpen(true)}
+                >
                   <AnimatePresence mode="wait">
                     {mobileMenuOpen ? (
                       <motion.div
@@ -373,7 +370,10 @@ export const Header = () => {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                <nav className="flex flex-col space-y-4 mt-8">
+                <SheetHeader className="text-left border-b pb-4">
+                  <SheetTitle>Navigation Menu</SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col space-y-4 mt-4">
                   {navItems.map((item) => (
                     <Link
                       key={item.name}
