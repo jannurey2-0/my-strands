@@ -42,6 +42,7 @@ export const SchoolsManagement = () => {
     school_id: "",
     category: "",
     strands: [] as string[],
+    map_link: "", // Add map_link field
   });
 
   const [strandInput, setStrandInput] = useState("");
@@ -127,7 +128,8 @@ export const SchoolsManagement = () => {
       contact_phone: "",
       school_id: "",
       category: "",
-      strands: [],
+      strands: [] as string[],
+      map_link: "",
     });
     setStrandInput("");
     setEditingSchool(null);
@@ -194,6 +196,7 @@ export const SchoolsManagement = () => {
       strands: Array.isArray(school.strands) 
         ? school.strands.map(s => String(s)) 
         : [],
+      map_link: school.map_link || "", // Add this line
     });
     setIsDialogOpen(true);
   };
@@ -358,6 +361,21 @@ export const SchoolsManagement = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+              
+              {/* Add Map Link Field */}
+              <div className="space-y-2">
+                <Label htmlFor="map_link">Map Link (Google Maps Embed URL)</Label>
+                <Input
+                  id="map_link"
+                  name="map_link"
+                  value={formData.map_link}
+                  onChange={handleInputChange}
+                  placeholder="https://www.google.com/maps/embed?pb=..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  Get the embed URL from Google Maps (Share → Embed a map)
+                </p>
               </div>
               
               <DialogFooter>

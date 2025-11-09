@@ -485,9 +485,20 @@ const Schools = () => {
                       <MapPin className="h-5 w-5 mr-2" />
                       Location
                     </h3>
-                    <div className="bg-muted/20 rounded-xl p-6 flex items-center justify-center border-2 border-dashed border-muted">
-                      {selectedSchool.address ? (
-                        <div className="text-center">
+                    <div className="bg-muted/20 rounded-xl p-6 border-2 border-dashed border-muted">
+                      {selectedSchool.map_link ? (
+                        <iframe
+                          src={selectedSchool.map_link}
+                          width="100%"
+                          height="300"
+                          style={{ border: 0, borderRadius: "0.5rem" }}
+                          allowFullScreen
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          title={`${selectedSchool.name} location map`}
+                        ></iframe>
+                      ) : selectedSchool.address ? (
+                        <div className="text-center h-[300px] flex flex-col items-center justify-center">
                           <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                           <p className="text-muted-foreground mb-2 font-medium">
                             School Address
@@ -500,7 +511,7 @@ const Schools = () => {
                           </p>
                         </div>
                       ) : (
-                        <div className="text-center">
+                        <div className="text-center h-[300px] flex flex-col items-center justify-center">
                           <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                           <p className="text-muted-foreground mb-2 font-medium">
                             Location Information Not Available
