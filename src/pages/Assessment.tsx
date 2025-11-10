@@ -34,6 +34,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { assessmentService, AssessmentData } from "@/integrations/supabase/assessmentService";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { motion } from "framer-motion";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
@@ -98,13 +99,15 @@ const Assessment = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { user: roleUser, profile: roleProfile } = useRoleAccess();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aptitudeQuestions, setAptitudeQuestions] = useState<AptitudeQuestionFromDB[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
   const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
-  
+  const [hasViewedReview, setHasViewedReview] = useState(false);
+
   // Form data state
   const [formData, setFormData] = useState({
     // Step 1: Basic Information
@@ -345,6 +348,10 @@ const Assessment = () => {
   // Navigation functions
   const handleNext = () => {
     if (currentStep < 5) {
+      // Set hasViewedReview to true when user reaches the review page
+      if (currentStep === 4) {
+        setHasViewedReview(true);
+      }
       setCurrentStep(currentStep + 1);
     } else {
       // Assessment complete, submit the form
@@ -354,6 +361,14 @@ const Assessment = () => {
 
   const handlePrevious = () => {
     if (currentStep > 0) {
+      // Show warning when going back from review page to aptitude test
+      if (currentStep === 5 && hasViewedReview) {
+        toast({
+          title: "Assessment Integrity Notice",
+          description: "Going back will lock your aptitude test answers to maintain assessment integrity. You can still review other sections.",
+          variant: "default"
+        });
+      }
       setCurrentStep(currentStep - 1);
     }
   };
@@ -425,6 +440,21 @@ const Assessment = () => {
       const result = await assessmentService.submitAssessment(assessmentData, profile.id);
       
       if (result.success) {
+        // Train ML model with new assessment data if ML is enabled
+        try {
+          // Check if ML model is enabled and train it with the new data
+          await assessmentService.trainMlModelWithNewData({
+            basicInfo: assessmentData.basicInfo,
+            academicProfile: assessmentData.academicProfile,
+            personalInterests: assessmentData.personalInterests,
+            hobbies: assessmentData.hobbies,
+            aptitudeAnswers: assessmentData.aptitudeAnswers
+          });
+        } catch (mlError) {
+          console.warn("Failed to train ML model with new data:", mlError);
+          // Don't fail the submission if ML training fails
+        }
+        
         clearTimeout(timeoutId);
         setIsSubmitting(false);
         
@@ -869,6 +899,13 @@ const Assessment = () => {
               <p className="text-muted-foreground">
                 Answer the following 15 questions to assess your skills and knowledge
               </p>
+              {hasViewedReview && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> You've already reviewed your answers. Changes to aptitude test answers are disabled to maintain assessment integrity.
+                  </p>
+                </div>
+              )}
             </div>
             
             {loadingQuestions ? (
@@ -910,18 +947,20 @@ const Assessment = () => {
                       {question.type === 'multiple_choice' ? (
                         <RadioGroup
                           value={formData.aptitudeAnswers[question.id]?.toString() || ""}
-                          onValueChange={(value) => handleAptitudeAnswer(question.id, parseInt(value, 10))}
+                          onValueChange={hasViewedReview ? undefined : (value) => handleAptitudeAnswer(question.id, parseInt(value, 10))}
                           className="space-y-3"
+                          disabled={hasViewedReview}
                         >
                           {options.map((option: string, optionIndex: number) => (
                             <div key={optionIndex} className="flex items-center space-x-3">
                               <RadioGroupItem 
                                 value={optionIndex.toString()} 
                                 id={`${question.id}-${optionIndex}`} 
+                                disabled={hasViewedReview}
                               />
                               <Label 
                                 htmlFor={`${question.id}-${optionIndex}`} 
-                                className="cursor-pointer"
+                                className={`cursor-pointer ${hasViewedReview ? 'opacity-75' : ''}`}
                               >
                                 {option}
                               </Label>
@@ -931,18 +970,33 @@ const Assessment = () => {
                       ) : question.type === 'true_false' ? (
                         <RadioGroup
                           value={formData.aptitudeAnswers[question.id]?.toString() || ""}
-                          onValueChange={(value) => handleAptitudeAnswer(question.id, value)}
+                          onValueChange={hasViewedReview ? undefined : (value) => handleAptitudeAnswer(question.id, value)}
                           className="space-y-3"
+                          disabled={hasViewedReview}
                         >
                           <div className="flex items-center space-x-3">
-                            <RadioGroupItem value="true" id={`${question.id}-true`} />
-                            <Label htmlFor={`${question.id}-true`} className="cursor-pointer">
+                            <RadioGroupItem 
+                              value="true" 
+                              id={`${question.id}-true`} 
+                              disabled={hasViewedReview}
+                            />
+                            <Label 
+                              htmlFor={`${question.id}-true`} 
+                              className={`cursor-pointer ${hasViewedReview ? 'opacity-75' : ''}`}
+                            >
                               True
                             </Label>
                           </div>
                           <div className="flex items-center space-x-3">
-                            <RadioGroupItem value="false" id={`${question.id}-false`} />
-                            <Label htmlFor={`${question.id}-false`} className="cursor-pointer">
+                            <RadioGroupItem 
+                              value="false" 
+                              id={`${question.id}-false`} 
+                              disabled={hasViewedReview}
+                            />
+                            <Label 
+                              htmlFor={`${question.id}-false`} 
+                              className={`cursor-pointer ${hasViewedReview ? 'opacity-75' : ''}`}
+                            >
                               False
                             </Label>
                           </div>
@@ -950,9 +1004,10 @@ const Assessment = () => {
                       ) : (
                         <Textarea
                           value={formData.aptitudeAnswers[question.id]?.toString() || ""}
-                          onChange={(e) => handleAptitudeAnswer(question.id, e.target.value)}
+                          onChange={hasViewedReview ? undefined : (e) => handleAptitudeAnswer(question.id, e.target.value)}
                           placeholder="Type your answer here..."
                           className="min-h-[120px]"
+                          disabled={hasViewedReview}
                         />
                       )}
                     </Card>
@@ -1354,14 +1409,18 @@ const Assessment = () => {
               {stepInfo.map((_, index) => (
                 <div
                   key={index}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                  className={`w-3 h-3 rounded-full transition-all duration-300 relative ${
                     index === currentStep
                       ? "bg-primary scale-125"
                       : index < currentStep
                       ? "bg-primary/50"
                       : "bg-muted"
                   }`}
-                />
+                >
+                  {hasViewedReview && index === 4 && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-500 rounded-full border border-white"></div>
+                  )}
+                </div>
               ))}
             </motion.div>
           </div>

@@ -42,6 +42,8 @@ interface TrainingProgress {
   loss: number;
   accuracy: number;
   valAccuracy: number;
+  currentStep: string;
+  stepProgress: number;
 }
 
 export const MLModelManagement = () => {
@@ -55,7 +57,15 @@ export const MLModelManagement = () => {
     trainingError: undefined,
     modelPath: undefined
   });
-  const [trainingProgress, setTrainingProgress] = useState<TrainingProgress | null>(null);
+  const [trainingProgress, setTrainingProgress] = useState<TrainingProgress | null>({
+    epoch: 0,
+    totalEpochs: MODEL_CONFIG.training?.epochs || 100,
+    loss: 0,
+    accuracy: 0,
+    valAccuracy: 0,
+    currentStep: 'Initializing',
+    stepProgress: 0
+  });
   const [mlModelEnabled, setMlModelEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [modelService] = useState(new ModelService());
@@ -200,7 +210,15 @@ export const MLModelManagement = () => {
       // Set the lock
       setTrainingLock(true);
       setModelStatus(prev => ({ ...prev, trainingInProgress: true, trainingError: undefined }));
-      setTrainingProgress(null);
+      setTrainingProgress({
+        epoch: 0,
+        totalEpochs: MODEL_CONFIG.training?.epochs || 100,
+        loss: 0,
+        accuracy: 0,
+        valAccuracy: 0,
+        currentStep: 'Initializing',
+        stepProgress: 0
+      });
       
       toast({
         title: "Training Started",
@@ -494,7 +512,7 @@ export const MLModelManagement = () => {
 
       {/* Model Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-primary/20 border-2">
+        <Card className="border-primary/20 border-2 hover:shadow-md transition-shadow duration-300">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -507,13 +525,26 @@ export const MLModelManagement = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <span>{modelStatus.dataCount >= 50 ? 'Sufficient' : 'Insufficient'} for training</span>
+            <div className="flex items-center text-xs text-muted-foreground mt-2">
+              <div className={`w-full h-1.5 rounded-full overflow-hidden ${modelStatus.dataCount >= 50 ? 'bg-green-200' : 'bg-red-200'}`}>
+                <div 
+                  className={`h-full ${modelStatus.dataCount >= 50 ? 'bg-green-500' : 'bg-red-500'}`}
+                  style={{ width: `${Math.min(100, (modelStatus.dataCount / 50) * 100)}%` }}
+                ></div>
+              </div>
+            </div>
+            <div className="flex items-center text-xs text-muted-foreground mt-2">
+              <span>{modelStatus.dataCount >= 50 ? (
+                <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+              ) : (
+                <AlertCircle className="h-3 w-3 mr-1 text-destructive" />
+              )}
+              {modelStatus.dataCount >= 50 ? 'Sufficient' : 'Insufficient'} for training</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className={modelStatus.isInitialized ? "border-green-500/20 border-2" : "border-destructive/20 border-2"}>
+        <Card className={modelStatus.isInitialized ? "border-green-500/20 border-2 hover:shadow-md transition-shadow duration-300" : "border-destructive/20 border-2 hover:shadow-md transition-shadow duration-300"}>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${modelStatus.isInitialized ? 'bg-green-500/10' : 'bg-destructive/10'}`}>
@@ -536,10 +567,13 @@ export const MLModelManagement = () => {
               )}
               <span>{modelStatus.isInitialized ? 'Initialized' : 'Initialization failed'}</span>
             </div>
+            <div className="text-xs text-muted-foreground mt-2">
+              {modelStatus.isInitialized ? 'Model is ready for training' : 'Model needs to be initialized'}
+            </div>
           </CardContent>
         </Card>
 
-        <Card className={modelStatus.isTrained ? "border-green-500/20 border-2" : "border-destructive/20 border-2"}>
+        <Card className={modelStatus.isTrained ? "border-green-500/20 border-2 hover:shadow-md transition-shadow duration-300" : "border-destructive/20 border-2 hover:shadow-md transition-shadow duration-300"}>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${modelStatus.isTrained ? 'bg-green-500/10' : 'bg-destructive/10'}`}>
@@ -562,10 +596,13 @@ export const MLModelManagement = () => {
               )}
               <span>{modelStatus.isTrained ? 'Model ready for predictions' : 'Model needs training'}</span>
             </div>
+            <div className="text-xs text-muted-foreground mt-2">
+              {modelStatus.isTrained ? 'Ready for strand recommendations' : 'Train model to enable predictions'}
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow duration-300">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
               <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
@@ -589,6 +626,9 @@ export const MLModelManagement = () => {
                 )}
                 <span>{mlModelEnabled ? 'Active in assessments' : 'Not in use'}</span>
               </div>
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">
+              {mlModelEnabled ? 'ML predictions active' : 'Rule-based system in use'}
             </div>
           </CardContent>
         </Card>
@@ -666,32 +706,67 @@ export const MLModelManagement = () => {
                 </Badge>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Loss</span>
-                  <span className="font-mono">{trainingProgress.loss.toFixed(4)}</span>
+                  <span className="text-muted-foreground">Current Step</span>
+                  <span className="font-medium">{trainingProgress.currentStep}</span>
                 </div>
-                <Progress value={trainingProgress.epoch / trainingProgress.totalEpochs * 100} />
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Loss</span>
+                    <span className="font-mono">{trainingProgress.loss.toFixed(4)}</span>
+                  </div>
+                  <Progress value={trainingProgress.epoch / trainingProgress.totalEpochs * 100} className="h-2" />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-sm bg-background p-3 rounded-lg border">
+                    <div className="text-muted-foreground">Accuracy</div>
+                    <div className="font-mono text-lg">{(trainingProgress.accuracy * 100).toFixed(2)}%</div>
+                  </div>
+                  <div className="text-sm bg-background p-3 rounded-lg border">
+                    <div className="text-muted-foreground">Validation Accuracy</div>
+                    <div className="font-mono text-lg">{(trainingProgress.valAccuracy * 100).toFixed(2)}%</div>
+                  </div>
+                  <div className="text-sm bg-background p-3 rounded-lg border">
+                    <div className="text-muted-foreground">Progress</div>
+                    <div className="font-mono text-lg">{Math.round(trainingProgress.epoch / trainingProgress.totalEpochs * 100)}%</div>
+                  </div>
+                </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-sm">
-                  <div className="text-muted-foreground">Accuracy</div>
-                  <div className="font-mono">{(trainingProgress.accuracy * 100).toFixed(2)}%</div>
-                </div>
-                <div className="text-sm">
-                  <div className="text-muted-foreground">Validation Accuracy</div>
-                  <div className="font-mono">{(trainingProgress.valAccuracy * 100).toFixed(2)}%</div>
-                </div>
+              <div className="flex items-center text-xs text-muted-foreground mt-2">
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                <span>Training in progress... Do not close this page</span>
               </div>
             </div>
           )}
 
           {modelStatus.lastTrained && (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-500" />
               Last trained: {modelStatus.lastTrained.toLocaleString()}
             </div>
           )}
+          
+          {/* Training History */}
+          <div className="pt-4 border-t">
+            <h4 className="font-medium text-foreground mb-2">Training History</h4>
+            <div className="text-sm text-muted-foreground">
+              {modelStatus.lastTrained ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <span>Model successfully trained on {modelStatus.lastTrained.toLocaleDateString()}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                  <span>No training history available</span>
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -745,36 +820,80 @@ export const MLModelManagement = () => {
       {/* Model Information */}
       <Card>
         <CardHeader>
-          <CardTitle>Model Information</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Model Information
+          </CardTitle>
           <CardDescription>
             Technical details about the machine learning model
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium text-foreground">Model Architecture</h4>
-              <p className="text-sm text-muted-foreground mt-2">
+            <div className="p-4 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <Cpu className="h-4 w-4 text-primary" />
+                <h4 className="font-medium text-foreground">Model Architecture</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">
                 Neural Network with multiple hidden layers using TensorFlow.js
               </p>
+              <div className="mt-2 text-xs text-muted-foreground">
+                <div>Input Size: {MODEL_CONFIG.architecture.inputSize}</div>
+                <div>Hidden Layers: {MODEL_CONFIG.architecture.hiddenLayers.join(', ')}</div>
+                <div>Output Size: {MODEL_CONFIG.architecture.outputSize}</div>
+              </div>
             </div>
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium text-foreground">Input Features</h4>
-              <p className="text-sm text-muted-foreground mt-2">
+            <div className="p-4 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <h4 className="font-medium text-foreground">Input Features</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">
                 Academic performance, personal interests, hobbies, and aptitude test results
               </p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                <Badge variant="secondary" className="text-xs">Academic</Badge>
+                <Badge variant="secondary" className="text-xs">Interests</Badge>
+                <Badge variant="secondary" className="text-xs">Hobbies</Badge>
+                <Badge variant="secondary" className="text-xs">Aptitude</Badge>
+              </div>
             </div>
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium text-foreground">Output</h4>
-              <p className="text-sm text-muted-foreground mt-2">
-                Probability scores for 6 SHS strands: STEM, ABM, HUMSS, GAS, TVL, Arts
+            <div className="p-4 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="h-4 w-4 text-primary" />
+                <h4 className="font-medium text-foreground">Output</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Probability scores for 6 SHS strands
               </p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                <Badge variant="outline" className="text-xs">STEM</Badge>
+                <Badge variant="outline" className="text-xs">ABM</Badge>
+                <Badge variant="outline" className="text-xs">HUMSS</Badge>
+                <Badge variant="outline" className="text-xs">GAS</Badge>
+                <Badge variant="outline" className="text-xs">TVL</Badge>
+                <Badge variant="outline" className="text-xs">Arts</Badge>
+              </div>
             </div>
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium text-foreground">Recommendation Engine</h4>
-              <p className="text-sm text-muted-foreground mt-2">
+            <div className="p-4 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="h-4 w-4 text-primary" />
+                <h4 className="font-medium text-foreground">Recommendation Engine</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">
                 Hybrid approach combining ML predictions with rule-based fallback
               </p>
+              <div className="mt-2 flex gap-2">
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                  <span>ML Predictions</span>
+                </div>
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                  <span>Rule-based Fallback</span>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>

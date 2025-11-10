@@ -36,6 +36,10 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
   const [editingQuestion, setEditingQuestion] = useState<AptitudeQuestion | null>(null);
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   // Add pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -52,17 +56,76 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
     type: 'multiple_choice' as 'multiple_choice' | 'true_false' | 'essay' | 'identification'
   });
 
-  // Calculate pagination values
-  const totalPages = Math.ceil(questions.length / itemsPerPage);
+  // Calculate pagination values with filtering
+  const filteredQuestions = questions.filter(question => {
+    const matchesCategory = categoryFilter === 'all' || question.category === categoryFilter;
+    const matchesType = typeFilter === 'all' || question.type === typeFilter;
+    const matchesDifficulty = difficultyFilter === 'all' || question.difficulty_level.toString() === difficultyFilter;
+    return matchesCategory && matchesType && matchesDifficulty;
+  });
+  
+  const totalPages = Math.ceil(filteredQuestions.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentQuestions = questions.slice(startIndex, endIndex);
+  const currentQuestions = filteredQuestions.slice(startIndex, endIndex);
 
   // Reset to first page when questions change
   const handleRefresh = () => {
     onRefresh();
     setCurrentPage(1);
+    setSelectedQuestions(new Set()); // Clear selection on refresh
   };
+
+  // Bulk action functions
+  const toggleQuestionSelection = (questionId: string) => {
+    const newSelected = new Set(selectedQuestions);
+    if (newSelected.has(questionId)) {
+      newSelected.delete(questionId);
+    } else {
+      newSelected.add(questionId);
+    }
+    setSelectedQuestions(newSelected);
+  };
+
+  const selectAllQuestions = () => {
+    if (selectedQuestions.size === currentQuestions.length) {
+      setSelectedQuestions(new Set());
+    } else {
+      setSelectedQuestions(new Set(currentQuestions.map(q => q.id)));
+    }
+  };
+
+  const deleteSelectedQuestions = async () => {
+    try {
+      const questionIds = Array.from(selectedQuestions);
+      const { error } = await supabase
+        .from('aptitude_questions')
+        .delete()
+        .in('id', questionIds);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Deleted ${questionIds.length} question${questionIds.length > 1 ? 's' : ''} successfully`
+      });
+
+      setSelectedQuestions(new Set());
+      handleRefresh();
+    } catch (error) {
+      console.error('Error deleting questions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete selected questions",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Get unique categories and types for filters
+  const uniqueCategories = Array.from(new Set(questions.map(q => q.category)));
+  const uniqueTypes = Array.from(new Set(questions.map(q => q.type || 'multiple_choice')));
+  const difficultyLevels = [1, 2, 3];
 
   const resetForm = () => {
     setFormData({
@@ -344,6 +407,79 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 p-4 bg-muted/30 rounded-lg">
+        <div className="flex flex-col gap-2">
+          <Label className="text-sm font-medium">Category</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {uniqueCategories.map(category => (
+                <SelectItem key={category} value={category}>
+                  <div className="flex items-center gap-2">
+                    {getCategoryIcon(category)}
+                    <span className="capitalize">{category}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="flex flex-col gap-2">
+          <Label className="text-sm font-medium">Type</Label>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {uniqueTypes.map(type => (
+                <SelectItem key={type} value={type}>
+                  <span className="capitalize">{type.replace('_', ' ')}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="flex flex-col gap-2">
+          <Label className="text-sm font-medium">Difficulty</Label>
+          <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Difficulty" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Levels</SelectItem>
+              {difficultyLevels.map(level => (
+                <SelectItem key={level} value={level.toString()}>
+                  <div className="flex items-center gap-1">
+                    {getDifficultyIcon(level)}
+                    <span>{getDifficultyText(level)}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="flex items-end">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setCategoryFilter('all');
+              setTypeFilter('all');
+              setDifficultyFilter('all');
+            }}
+          >
+            Clear Filters
+          </Button>
+        </div>
+      </div>
+
       {/* Hidden file input */}
       <input
         type="file"
@@ -601,11 +737,44 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
         </DialogContent>
       </Dialog>
 
+      {/* Bulk Actions Bar */}
+      {selectedQuestions.size > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+          <span className="text-sm font-medium text-primary">
+            {selectedQuestions.size} question{selectedQuestions.size > 1 ? 's' : ''} selected
+          </span>
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            onClick={deleteSelectedQuestions}
+            className="ml-2"
+          >
+            <Trash2 className="w-4 h-4 mr-1" />
+            Delete Selected
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setSelectedQuestions(new Set())}
+          >
+            Clear Selection
+          </Button>
+        </div>
+      )}
+
       {/* Questions Table */}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[50px]">
+                <input 
+                  type="checkbox" 
+                  checked={selectedQuestions.size === currentQuestions.length && currentQuestions.length > 0}
+                  onChange={selectAllQuestions}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+              </TableHead>
               <TableHead className="w-[50px]">#</TableHead>
               <TableHead>Question</TableHead>
               <TableHead className="w-[120px]">Category</TableHead>
@@ -618,7 +787,18 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
           <TableBody>
             {currentQuestions.length > 0 ? (
               currentQuestions.map((question, index) => (
-                <TableRow key={question.id}>
+                <TableRow 
+                  key={question.id}
+                  className={selectedQuestions.has(question.id) ? "bg-primary/5" : ""}
+                >
+                  <TableCell>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedQuestions.has(question.id)}
+                      onChange={() => toggleQuestionSelection(question.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{startIndex + index + 1}</TableCell>
                   <TableCell>
                     <div className="max-w-md truncate" title={question.question}>
@@ -663,8 +843,10 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No questions found. Get started by creating your first assessment question.
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  {categoryFilter !== 'all' || typeFilter !== 'all' || difficultyFilter !== 'all' 
+                    ? 'No questions match the current filters. Try adjusting your filters.' 
+                    : 'No questions found. Get started by creating your first assessment question.'}
                 </TableCell>
               </TableRow>
             )}

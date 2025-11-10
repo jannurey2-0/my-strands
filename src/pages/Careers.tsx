@@ -8,6 +8,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { MaintenancePage } from "@/components/MaintenancePage";
 import { Link } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth"; // Add this import
 import { 
   Microscope,
   Calculator,
@@ -60,7 +61,8 @@ const Careers = () => {
   const [cardHoverStates, setCardHoverStates] = useState<CardHoverState>({});
   const [maintenance, setMaintenance] = useState<{ isUnderMaintenance: boolean; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const { user, profile } = useAuth(); // Add this line
+
   // Check maintenance status on component mount
   useEffect(() => {
     const checkMaintenanceStatus = async () => {
@@ -418,27 +420,60 @@ const Careers = () => {
               <CardContent className="py-8">
                 <h2 className="text-2xl font-bold mb-4">Not Sure Which Strand is Right for You?</h2>
                 <p className="text-muted-foreground mb-6">
-                  Take our free assessment to discover your ideal SHS strand based on your interests, strengths, and career goals.
+                  {user && profile?.role === 'admin' 
+                    ? "As an administrator, you can manage the assessment system and view student results." 
+                    : "Take our free assessment to discover your ideal SHS strand based on your interests, strengths, and career goals."}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link to="/student/login">
-                    <Button variant="hero" size="lg" className="group">
-                      <Trophy className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
-                      Take Free Assessment
-                    </Button>
-                  </Link>
-                  <Link to="/dashboard">
-                    <Button variant="outline" size="lg" className="group">
-                      <Eye className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                      View My Results
-                    </Button>
-                  </Link>
-                  <Link to="/schools">
-                    <Button variant="outline" size="lg" className="group">
-                      <School className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                      View Schools
-                    </Button>
-                  </Link>
+                  {user && profile?.role === 'admin' ? (
+                    // Show admin-specific buttons
+                    <>
+                      <Link to="/admin/dashboard">
+                        <Button variant="hero" size="lg" className="group">
+                          <Trophy className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
+                          Access Admin Dashboard
+                        </Button>
+                      </Link>
+                      <Link to="/admin/students">
+                        <Button variant="outline" size="lg" className="group">
+                          <Eye className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                          View Student Results
+                        </Button>
+                      </Link>
+                    </>
+                  ) : user && profile?.role === 'student' ? (
+                    // Show student-specific buttons
+                    <>
+                      <Link to="/dashboard">
+                        <Button variant="hero" size="lg" className="group">
+                          <Trophy className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
+                          Continue to Dashboard
+                        </Button>
+                      </Link>
+                      <Link to="/assessment">
+                        <Button variant="outline" size="lg" className="group">
+                          <Eye className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                          Take Assessment
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    // Show default buttons for unauthenticated users
+                    <>
+                      <Link to="/student/login">
+                        <Button variant="hero" size="lg" className="group">
+                          <Trophy className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
+                          Take Free Assessment
+                        </Button>
+                      </Link>
+                      <Link to="/schools">
+                        <Button variant="outline" size="lg" className="group">
+                          <School className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                          View Schools
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -530,12 +565,31 @@ const Careers = () => {
                 <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                   Close
                 </Button>
-                <Link to="/student/login">
-                  <Button variant="hero">
-                    <Trophy className="h-4 w-4 mr-2" />
-                    Take Assessment
-                  </Button>
-                </Link>
+                {user && profile?.role === 'admin' ? (
+                  // Show admin-specific button
+                  <Link to="/admin/dashboard">
+                    <Button variant="hero">
+                      <Trophy className="h-4 w-4 mr-2" />
+                      Access Admin Dashboard
+                    </Button>
+                  </Link>
+                ) : user && profile?.role === 'student' ? (
+                  // Show student-specific button
+                  <Link to="/assessment">
+                    <Button variant="hero">
+                      <Trophy className="h-4 w-4 mr-2" />
+                      Take Assessment
+                    </Button>
+                  </Link>
+                ) : (
+                  // Show default button for unauthenticated users
+                  <Link to="/student/login">
+                    <Button variant="hero">
+                      <Trophy className="h-4 w-4 mr-2" />
+                      Take Assessment
+                    </Button>
+                  </Link>
+                )}
               </DialogFooter>
             </motion.div>
           )}

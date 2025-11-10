@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useRoleAccess } from "@/hooks/useRoleAccess"; // Add this import
 import { assessmentService } from "@/integrations/supabase/assessmentService";
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from "@/integrations/supabase/types";
@@ -51,6 +52,7 @@ const Results = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { user: roleUser, profile: roleProfile } = useRoleAccess(); // Add this line
   const [strandResults, setStrandResults] = useState<StrandResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,25 +85,24 @@ const Results = () => {
   useEffect(() => {
     const checkMlModelStatus = async () => {
       try {
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('system_settings')
-          .select('*')
-          .eq('page_name', 'ml_model');
+        // Use the new function to check if ML model is enabled
+        const isEnabled = await assessmentService.isMlModelEnabled();
+        setMlModelEnabled(isEnabled);
         
-        if (settingsError) {
-          console.error('Error fetching ML model settings:', settingsError);
-          // Show a toast notification for better user feedback
-          toast({
-            title: "Warning",
-            description: "Failed to fetch ML model settings. Using rule-based recommendations.",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        // Fix: ML model is enabled when is_under_maintenance is TRUE (consistent with admin dashboard)
-        if (settingsData && settingsData.length > 0) {
-          setMlModelEnabled(settingsData[0].is_under_maintenance || false);
+        if (isEnabled) {
+          // Initialize the model service if ML is enabled
+          try {
+            await modelService.initialize();
+            console.log('Model service initialized successfully');
+          } catch (error) {
+            console.error('Error initializing model service:', error);
+            // Show a toast notification for better user feedback
+            toast({
+              title: "ML Model Error",
+              description: "Failed to initialize ML model. Using rule-based recommendations.",
+              variant: "destructive"
+            });
+          }
         }
       } catch (err) {
         console.error('Error checking ML model status:', err);
@@ -116,29 +117,6 @@ const Results = () => {
 
     checkMlModelStatus();
   }, []);
-
-  // Initialize model service
-  useEffect(() => {
-    const initializeModel = async () => {
-      try {
-        // Initialize the model service
-        await modelService.initialize();
-        console.log('Model service initialized successfully');
-      } catch (error) {
-        console.error('Error initializing model service:', error);
-        // Show a toast notification for better user feedback
-        toast({
-          title: "ML Model Error",
-          description: "Failed to initialize ML model. Using rule-based recommendations.",
-          variant: "destructive"
-        });
-      }
-    };
-
-    if (mlModelEnabled) {
-      initializeModel();
-    }
-  }, [mlModelEnabled, modelService]);
 
   // Define strand information with detailed scoring criteria
   const strandInfo: Record<string, Omit<StrandResult, 'match'>> = {
@@ -584,8 +562,8 @@ const Results = () => {
                 scores = calculateStrandScores(latest);
               }
             } else {
-              // Use rule-based scoring
-              console.log("Using rule-based scoring");
+              // Use rule-based scoring when ML is not enabled
+              console.log("Using rule-based scoring (ML model is disabled by admin)");
               scores = calculateStrandScores(latest);
             }
           

@@ -111,6 +111,9 @@ export const Header = () => {
 
   // Check if user is a student
   const isStudent = user && profile?.role === 'student';
+  
+  // Check if user is an admin
+  const isAdmin = user && profile?.role === 'admin';
 
   // Show sign out confirmation dialog
   const confirmSignOut = () => {
@@ -176,10 +179,12 @@ export const Header = () => {
         { name: "Dashboard", path: "/dashboard" },
         { name: "Assessment", path: "/assessment" },
         { name: "Career Paths", path: "/careers" },
+        { name: "Schools", path: "/schools" },
       ]
     : [
         { name: "Home", path: "/" },
         { name: "Career Paths", path: "/careers" },
+        { name: "Schools", path: "/schools" },
       ];
 
   return (
@@ -290,23 +295,37 @@ export const Header = () => {
                   Welcome, {profile?.full_name || user.email}
                 </motion.span>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="hidden md:inline-flex">
-                      <User className="h-4 w-4 mr-2" />
-                      Account
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile">Profile</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={confirmSignOut}>Sign Out</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {isAdmin && location.pathname === '/' ? (
+                  // Show Return to Dashboard button for admins on landing page
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate('/admin/dashboard')}
+                    className="hidden md:inline-flex"
+                  >
+                    <GraduationCap className="h-4 w-4 mr-2" />
+                    Return to Dashboard
+                  </Button>
+                ) : (
+                  // Show regular dropdown for other cases
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="hidden md:inline-flex">
+                        <User className="h-4 w-4 mr-2" />
+                        Account
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile">Profile</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={confirmSignOut}>Sign Out</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </>
             ) : (
               <>
@@ -424,28 +443,47 @@ export const Header = () => {
                         <p className="text-sm text-muted-foreground">Signed in as</p>
                         <p className="font-medium truncate">{profile?.full_name || user.email}</p>
                       </div>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => {
-                          closeMobileMenu();
-                          navigate('/profile');
-                        }}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        Profile
-                      </Button>
-                      <Button 
-                        variant="destructive" 
-                        className="w-full justify-start mt-2"
-                        onClick={() => {
-                          closeMobileMenu();
-                          confirmSignOut();
-                        }}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        Sign Out
-                      </Button>
+                      
+                      {isAdmin && location.pathname === '/' ? (
+                        // Show Return to Dashboard button for admins on landing page
+                        <Button 
+                          variant="outline" 
+                          className="w-full justify-start"
+                          onClick={() => {
+                            closeMobileMenu();
+                            navigate('/admin/dashboard');
+                          }}
+                        >
+                          <GraduationCap className="h-4 w-4 mr-2" />
+                          Return to Dashboard
+                        </Button>
+                      ) : (
+                        // Show regular profile and sign out buttons
+                        <>
+                          <Button 
+                            variant="outline" 
+                            className="w-full justify-start"
+                            onClick={() => {
+                              closeMobileMenu();
+                              navigate('/profile');
+                            }}
+                          >
+                            <User className="h-4 w-4 mr-2" />
+                            Profile
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            className="w-full justify-start mt-2"
+                            onClick={() => {
+                              closeMobileMenu();
+                              confirmSignOut();
+                            }}
+                          >
+                            <User className="h-4 w-4 mr-2" />
+                            Sign Out
+                          </Button>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="pt-4 border-t border-border space-y-2">

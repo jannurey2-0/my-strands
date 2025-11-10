@@ -34,6 +34,8 @@ import { motion } from "framer-motion";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ChartErrorBoundary from "@/components/ChartErrorBoundary";
 import logger from '@/lib/logger';
+import { useToast } from "@/hooks/use-toast";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 // Import chart components
 import { Bar, BarChart, Line, LineChart, Pie, PieChart as RechartsPieChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -59,6 +61,8 @@ interface ProgressData {
 
 const Dashboard = () => {
   const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const { user: roleUser, profile: roleProfile } = useRoleAccess();
   const [assessmentProgress, setAssessmentProgress] = useState<number>(0);
   const [completedAssessments, setCompletedAssessments] = useState<number>(0);
   const [totalAssessments, setTotalAssessments] = useState<number>(0);

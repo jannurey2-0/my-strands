@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   Dialog, 
   DialogContent, 
+  DialogDescription,
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
@@ -21,7 +22,7 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Plus, Edit, Trash2, School } from "lucide-react";
+import { Plus, Edit, Trash2, School, MapPin, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Json } from "@/integrations/supabase/types";
 
@@ -32,6 +33,8 @@ export const SchoolsManagement = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSchool, setEditingSchool] = useState<SchoolData | null>(null);
+  const [mapPreviewSchool, setMapPreviewSchool] = useState<SchoolData | null>(null);
+  const [isMapPreviewOpen, setIsMapPreviewOpen] = useState(false);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -401,6 +404,7 @@ export const SchoolsManagement = () => {
               <TableHead>Address</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Strands</TableHead>
+              <TableHead>Map</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -437,6 +441,23 @@ export const SchoolsManagement = () => {
                     )}
                   </div>
                 </TableCell>
+                <TableCell>
+                  {school.map_link ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setMapPreviewSchool(school);
+                        setIsMapPreviewOpen(true);
+                      }}
+                      title="Preview map"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No map</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button
@@ -468,6 +489,45 @@ export const SchoolsManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Map Preview Dialog */}
+      <Dialog open={isMapPreviewOpen} onOpenChange={setIsMapPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Map Preview: {mapPreviewSchool?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Location of {mapPreviewSchool?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="h-[60vh] w-full">
+            {mapPreviewSchool?.map_link ? (
+              <iframe 
+                src={mapPreviewSchool.map_link}
+                className="w-full h-full border-0 rounded-lg"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title={`Map of ${mapPreviewSchool.name}`}
+              ></iframe>
+            ) : (
+              <div className="flex items-center justify-center h-full bg-muted/20 rounded-lg">
+                <div className="text-center">
+                  <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No map available for this school</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMapPreviewOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

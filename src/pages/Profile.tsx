@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, User as UserIcon, Mail, ShieldCheck } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -14,6 +15,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 export default function Profile() {
   const { user, profile, refreshAuthState } = useAuth();
   const { toast } = useToast();
+  const { user: roleUser, profile: roleProfile } = useRoleAccess();
 
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);

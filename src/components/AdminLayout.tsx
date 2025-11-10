@@ -15,9 +15,11 @@ import {
   ChevronDown,
   Settings,
   Shield,
-  Cpu
+  Cpu,
+  Home,
+  BarChart3
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 interface AdminLayoutProps {
@@ -30,6 +32,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
   const { profile, signOut, user, session } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -105,7 +108,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
 
   const handleNavigation = (itemId: string) => {
     // If we're on a different route (like /admin/profile), navigate to dashboard first
-    if (window.location.pathname !== '/admin/dashboard') {
+    if (location.pathname !== '/admin/dashboard') {
       navigate('/admin/dashboard');
     }
     setActiveSection(itemId as 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model');
@@ -124,6 +127,10 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
       // Even if sign out fails, navigate to login to reset UI state
       navigate('/admin/login', { replace: true });
     }
+  };
+
+  const handleHomeNavigation = () => {
+    navigate('/');
   };
 
   // If there's a session but no user, we have a corrupted state
@@ -162,7 +169,10 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">A</span>
             </div>
-            <span className="text-lg font-semibold text-foreground">Admin Panel</span>
+            <div>
+              <span className="text-lg font-semibold text-foreground">Admin Panel</span>
+              <div className="text-xs text-muted-foreground -mt-1">SHSNav System</div>
+            </div>
           </div>
           <Button 
             variant="ghost" 
@@ -174,8 +184,10 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
           </Button>
         </div>
         
-        <nav className="flex-1 px-4 py-6">
-          <ul className="space-y-2">
+        {/* Home button at top of navigation */}
+        
+        <nav className="flex-1 px-4 py-4">
+          <ul className="space-y-1">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -200,21 +212,23 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
         {/* User profile moved to bottom of sidebar */}
         <div className="p-4 border-t bg-muted/50 mt-auto">
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2">
-              <User className="h-4 w-4 text-primary" />
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+              <User className="h-5 w-5 text-primary" />
             </div>
-            <div className="text-sm">
-              <div className="font-medium text-foreground">{profile?.full_name || 'Administrator'}</div>
-              <div className="text-muted-foreground text-xs">Administrator</div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-foreground truncate">{profile?.full_name || 'Administrator'}</div>
+              <div className="text-muted-foreground text-xs truncate">Administrator</div>
             </div>
           </div>
+          
+          {/* Removed Profile and Sign Out buttons from sidebar as they're available in the header dropdown */}
         </div>
       </aside>
 
       {/* Main content */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Header */}
-        <header className="bg-background border-b shadow-sm">
+        <header className="bg-background border-b shadow-sm sticky top-0 z-10">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             <div className="flex items-center">
               <Button 
@@ -225,55 +239,106 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
               >
                 <Menu className="h-6 w-6" />
               </Button>
-              <h1 className="text-xl font-semibold text-foreground">
-                {navigationItems.find(item => item.id === activeSection)?.label || 'Admin Panel'}
-              </h1>
+              <div className="flex items-center">
+                <BarChart3 className="h-6 w-6 text-primary mr-2" />
+                <h1 className="text-xl font-semibold text-foreground">
+                  {navigationItems.find(item => item.id === activeSection)?.label || 'Admin Panel'}
+                </h1>
+              </div>
             </div>
             
-            {/* User profile dropdown in header */}
-            <div className="relative" ref={userMenuRef}>
-              <Button 
-                variant="ghost" 
-                className="flex items-center space-x-2"
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-              >
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-                <div className="hidden md:flex flex-col items-start">
-                  <span className="text-sm font-medium text-foreground">{profile?.full_name || 'Administrator'}</span>
-                  <span className="text-xs text-muted-foreground">Administrator</span>
-                </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </Button>
-              
-              {/* Dropdown menu */}
-              {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-background border rounded-md shadow-lg py-1 z-50">
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start px-4 py-2"
-                    onClick={() => {
-                      setUserMenuOpen(false);
-                      navigate('/admin/profile');
-                    }}
-                  >
-                    <User className="h-4 w-4 mr-2" />
-                    Profile
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start px-4 py-2"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
-                  </Button>
-                </div>
-              )}
-            </div>
+            {/* Show different header content based on current location */}
+            {window.location.pathname === '/' || window.location.pathname === '/index.html' ? (
+              // On landing page - show Return to Dashboard button
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/admin/dashboard')}
+                >
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  Return to Dashboard
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleSignOut}
+                  title="Sign Out"
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </div>
+            ) : (
+              // In admin dashboard - show user profile dropdown
+              <div className="relative" ref={userMenuRef}>
+                <Button 
+                  variant="ghost" 
+                  className="flex items-center space-x-2"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                >
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="hidden md:flex flex-col items-start">
+                    <span className="text-sm font-medium text-foreground">{profile?.full_name || 'Administrator'}</span>
+                    <span className="text-xs text-muted-foreground">Administrator</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                </Button>
+                
+                {/* Dropdown menu */}
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-background border rounded-md shadow-lg py-1 z-50">
+                    <div className="px-4 py-2 border-b">
+                      <div className="font-medium text-foreground">{profile?.full_name || 'Administrator'}</div>
+                      <div className="text-sm text-muted-foreground">Administrator</div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start px-4 py-2"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        navigate('/admin/profile');
+                      }}
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Profile
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start px-4 py-2"
+                      onClick={handleHomeNavigation}
+                    >
+                      <Home className="h-4 w-4 mr-2" />
+                      Back to Main Site
+                    </Button>
+                    <hr className="my-1" />
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start px-4 py-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={handleSignOut}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </header>
+
+        {/* Breadcrumb */}
+        <div className="px-4 sm:px-6 py-2 bg-muted/30 border-b text-sm">
+          <div className="flex items-center text-muted-foreground">
+            <span>Admin</span>
+            <span className="mx-2">/</span>
+            <span className="text-foreground font-medium">
+              {navigationItems.find(item => item.id === activeSection)?.label || 'Dashboard'}
+            </span>
+          </div>
+        </div>
 
         {/* Content */}
         <main className="flex-1 overflow-auto p-4 sm:p-6 bg-gradient-to-br from-background to-muted/30">
@@ -281,6 +346,15 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
             {children}
           </div>
         </main>
+        
+        {/* Footer */}
+        <footer className="bg-background border-t py-3 px-4 text-center text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row justify-between items-center">
+            <div>SHSNav Admin Panel v1.0</div>
+            <div className="hidden sm:block">© {new Date().getFullYear()} SHSNav. All rights reserved.</div>
+            <div className="sm:hidden">© {new Date().getFullYear()}</div>
+          </div>
+        </footer>
       </div>
     </div>
   );

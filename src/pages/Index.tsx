@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   ArrowRight, 
   CheckCircle, 
@@ -36,6 +37,7 @@ import useEmblaCarousel from 'embla-carousel-react';
 const Index = () => {
   const { toast } = useToast();
   const location = useLocation();
+  const { user, profile } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
 
@@ -197,17 +199,38 @@ const Index = () => {
                 animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : 20 }}
                 transition={{ duration: 0.5, delay: 0.4 }}
               >
-                <Link to="/student/login">
-                  <Button variant="hero" size="lg" className="w-full sm:w-auto px-8 py-6 text-base font-semibold group">
-                    Start Assessment
-                    <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
-                <Link to="/careers">
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto px-8 py-6 text-base font-semibold">
-                    Explore Career Paths
-                  </Button>
-                </Link>
+                {user && profile?.role === 'admin' ? (
+                  // Show admin-specific CTA
+                  <Link to="/admin/dashboard">
+                    <Button variant="hero" size="lg" className="w-full sm:w-auto px-8 py-6 text-base font-semibold group">
+                      Access Admin Dashboard
+                      <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                ) : user && profile?.role === 'student' ? (
+                  // Show student-specific CTA
+                  <Link to="/dashboard">
+                    <Button variant="hero" size="lg" className="w-full sm:w-auto px-8 py-6 text-base font-semibold group">
+                      Continue to Dashboard
+                      <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                ) : (
+                  // Show default CTAs for unauthenticated users
+                  <>
+                    <Link to="/student/login">
+                      <Button variant="hero" size="lg" className="w-full sm:w-auto px-8 py-6 text-base font-semibold group">
+                        Start Assessment
+                        <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </Link>
+                    <Link to="/careers">
+                      <Button variant="outline" size="lg" className="w-full sm:w-auto px-8 py-6 text-base font-semibold">
+                        Explore Career Paths
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </motion.div>
 
               <motion.div 

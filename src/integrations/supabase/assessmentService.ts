@@ -387,6 +387,49 @@ export const assessmentService = {
     }
   },
 
+  // Train ML model with new assessment data
+  trainMlModelWithNewData: async (assessmentData: any) => {
+    try {
+      // Check if ML model is enabled
+      const isEnabled = await assessmentService.isMlModelEnabled();
+      
+      if (!isEnabled) {
+        logger.info('ML model is not enabled by admin. Skipping model training.');
+        return { success: true, message: 'ML model is disabled by admin' };
+      }
+      
+      // Import the model service dynamically to avoid circular dependencies
+      const { default: ModelService } = await import('@/ml/services/modelService');
+      const modelService = new ModelService();
+      
+      // Initialize the model service
+      await modelService.initialize();
+      
+      // Wait for any ongoing training to complete
+      await modelService.waitForTraining();
+      
+      // Prepare training data from the new assessment
+      const trainingData = modelService.prepareTrainingData([assessmentData]);
+      
+      if (trainingData.length > 0) {
+        // Train the model with the new data
+        await modelService.trainModel(trainingData);
+        
+        // Save the updated model
+        await modelService.saveModel('strand-recommender-v1');
+        
+        logger.info('ML model trained successfully with new assessment data');
+        return { success: true, message: 'Model trained successfully' };
+      } else {
+        logger.warn('No valid training data prepared from new assessment');
+        return { success: false, message: 'No valid training data' };
+      }
+    } catch (error) {
+      logger.error('Error training ML model with new data:', error);
+      return { success: false, message: error.message || 'Failed to train model' };
+    }
+  },
+
   // Check if a specific page is under maintenance
   isPageUnderMaintenance: async (pageName: string) => {
     try {
@@ -420,6 +463,29 @@ export const assessmentService = {
     } catch (error) {
       logger.error('Error in testRecommendationsSaving:', error);
       throw error;
+    }
+  },
+
+  // Check if ML model is enabled
+  isMlModelEnabled: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('is_under_maintenance')
+        .eq('page_name', 'ml_model')
+        .single();
+
+      if (error) {
+        logger.error('Error checking ML model status:', error);
+        return false;
+      }
+
+      // For ML model, is_under_maintenance = true means ENABLED
+      // This is different from other pages where it means maintenance mode
+      return data?.is_under_maintenance || false;
+    } catch (error) {
+      logger.error('Error in isMlModelEnabled:', error);
+      return false;
     }
   }
 };
