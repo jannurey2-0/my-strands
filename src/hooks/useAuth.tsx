@@ -403,7 +403,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: new Error(passwordValidation.message) };
     }
 
+    // Ensure we're using the correct redirect URL for auth callback
     const redirectUrl = `${window.location.origin}/auth/callback`;
+    console.log("Using redirect URL for signup:", redirectUrl);
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -415,6 +417,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) {
+      console.error("Signup error:", error);
       toast({
         title: "Sign up failed",
         description: error.message,

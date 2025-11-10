@@ -9,11 +9,9 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     throw new Error("Missing Supabase environment variables. Define VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your .env file.");
 }
 
+// Use the correct redirect URL for auth callback
 const getRedirectUrl = (): string => {
-  if (import.meta.env.DEV) {
-    return `${window.location.origin}/dashboard`;
-  }
-  return 'https://my-strands.vercel.app/dashboard';
+  return `${window.location.origin}/auth/callback`;
 };
 
 type Profile = Database['public']['Tables']['profiles']['Row'];

@@ -13,7 +13,7 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
-        // Check for error parameters first
+        // Get URL parameters
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
         
@@ -24,12 +24,7 @@ export default function AuthCallback() {
         console.log("Hash params:", Object.fromEntries(hashParams.entries()));
         console.log("Query params:", Object.fromEntries(queryParams.entries()));
 
-        // Try to get the session from Supabase
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        console.log("Current session:", session);
-        console.log("Session error:", sessionError);
-
-        // Check for error parameters
+        // Check for error parameters first
         const error = hashParams.get("error") || queryParams.get("error") || hashParams.get("error_code");
         const errorDescription = hashParams.get("error_description") || queryParams.get("error_description");
 
@@ -40,29 +35,72 @@ export default function AuthCallback() {
           return;
         }
 
-        // If we have a session, confirmation was successful
-        if (session) {
-          console.log("Session found - email confirmed!");
-          // Sign out immediately to prevent auto-login
+        // Let Supabase handle the OAuth flow automatically
+        // Supabase will automatically detect and handle the code parameter with PKCE
+        console.log("Letting Supabase handle OAuth flow automatically...");
+        
+        // Get the current session - Supabase should have automatically processed the code
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+        }
+        
+        console.log("Session after auto-processing:", session);
+
+        // Check if we have a session with a confirmed user
+        if (session?.user?.email_confirmed_at) {
+          console.log("Email confirmed via auto-processed session!");
+          // Sign out immediately to prevent auto-login, but show success message
           await supabase.auth.signOut();
           
           setStatus("success");
-          setMessage("You can now close this tab and proceed to Login");
-        } else {
-          // No session and no error - might be an invalid/expired link
-          console.warn("No session and no error - invalid link?");
-          setStatus("error");
-          setMessage("Invalid confirmation link or link has expired. Please try signing up again.");
+          setMessage("Email successfully confirmed! You can now sign in with your credentials.");
+          return;
         }
+
+        // If no session but we have a code, try to get user data directly
+        const code = queryParams.get("code");
+        if (code) {
+          console.log("Code found, trying to get user data directly...");
+          // Try to get user data directly - the email might already be confirmed
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          
+          if (userError) {
+            console.error("Error getting user:", userError);
+          }
+          
+          console.log("User data:", user);
+          
+          if (user?.email_confirmed_at) {
+            console.log("Email confirmed via direct user check!");
+            // Sign out immediately to prevent auto-login
+            await supabase.auth.signOut();
+            
+            setStatus("success");
+            setMessage("Email successfully confirmed! You can now sign in with your credentials.");
+            return;
+          } else if (user) {
+            console.log("User exists but email not yet confirmed");
+            setStatus("error");
+            setMessage("Email confirmation is still processing. Please wait a moment and try signing in.");
+            return;
+          }
+        }
+
+        // If we get here, it might be an invalid or expired link
+        console.warn("No valid session or user found - possibly invalid/expired link");
+        setStatus("error");
+        setMessage("Invalid confirmation link or link has expired. Please try signing up again.");
       } catch (error) {
         console.error("Error during email confirmation:", error);
         setStatus("error");
-        setMessage("An error occurred during email confirmation.");
+        setMessage("An error occurred during email confirmation. Please try again.");
       }
     };
 
     handleEmailConfirmation();
-  }, [status]);
+  }, []);
 
   const handleProceedToLogin = () => {
     navigate("/student/login");
