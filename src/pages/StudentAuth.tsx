@@ -71,14 +71,24 @@ export default function StudentAuth() {
     
     if (!error) {
       logger.safe('Student sign up successful');
+      toast({
+        title: "Account Created!",
+        description: "Please check your email to verify your account.",
+      });
     } else {
-      // Check what type of error it is
-      if (error.message.includes('Invalid Email')) {
-        setEmailError(error.message);
+      // Provide user-friendly error messages
+      if (error.message.includes('Invalid Email') || error.message.includes('email')) {
+        setEmailError('Please enter a valid email address');
+      } else if (error.message.includes('Password should be at least')) {
+        setPasswordError('Password must be at least 6 characters long');
+      } else if (error.message.includes('User already registered')) {
+        setEmailError('This email is already registered. Please sign in instead.');
       } else if (error.message.includes('Invalid Password') || error.message.includes('Password')) {
-        setPasswordError(error.message);
+        setPasswordError('Please enter a valid password (at least 6 characters)');
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        setFormError('Network error. Please check your internet connection and try again.');
       } else {
-        setFormError(error.message || 'An error occurred during sign up');
+        setFormError('Unable to create account. Please try again or contact support if the issue persists.');
       }
     }
     
@@ -98,12 +108,24 @@ export default function StudentAuth() {
     
     if (!error) {
       logger.safe('Student sign in successful, waiting for profile to load...');
+      toast({
+        title: "Welcome Back!",
+        description: "Redirecting to your dashboard...",
+      });
     } else {
-      // Check what type of error it is
-      if (error.message.includes('Invalid Password') || error.message.includes('Password')) {
-        setPasswordError(error.message);
+      // Provide user-friendly error messages
+      if (error.message.includes('Invalid login credentials')) {
+        setFormError('Incorrect email or password. Please try again.');
+      } else if (error.message.includes('Email not confirmed')) {
+        setFormError('Please verify your email address before signing in.');
+      } else if (error.message.includes('Invalid Password') || error.message.includes('password')) {
+        setPasswordError('Incorrect password. Please try again.');
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        setFormError('Network error. Please check your internet connection and try again.');
+      } else if (error.message.includes('too many')) {
+        setFormError('Too many login attempts. Please wait a few minutes and try again.');
       } else {
-        setFormError(error.message || 'An error occurred during sign in');
+        setFormError('Unable to sign in. Please check your credentials and try again.');
       }
     }
     

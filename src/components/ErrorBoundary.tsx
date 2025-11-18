@@ -66,8 +66,28 @@ class ErrorBoundary extends Component<Props, State> {
             <CardContent>
               <div className="space-y-4">
                 <div className="bg-muted/10 p-4 rounded-lg">
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Error Details:</p>
-                  <p className="text-sm text-destructive">{this.state.error?.toString()}</p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Don't worry! This is likely a temporary issue. Here's what you can do:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground mb-3">
+                    <li>Click "Try Again" to retry the last action</li>
+                    <li>Click "Refresh Page" to reload the entire page</li>
+                    <li>If the problem persists, please contact support</li>
+                  </ul>
+                  <details className="mt-3">
+                    <summary className="text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground">
+                      Technical Details (for developers)
+                    </summary>
+                    <div className="mt-2 p-3 bg-destructive/5 rounded border border-destructive/20">
+                      <p className="text-xs font-mono text-destructive break-all">{this.state.error?.toString()}</p>
+                      {this.state.errorInfo && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-destructive/80 cursor-pointer">Stack Trace</summary>
+                          <pre className="text-xs mt-1 overflow-auto">{this.state.errorInfo.componentStack}</pre>
+                        </details>
+                      )}
+                    </div>
+                  </details>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
@@ -81,6 +101,13 @@ class ErrorBoundary extends Component<Props, State> {
                     className="flex items-center gap-2"
                   >
                     Refresh Page
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => window.location.href = '/dashboard'}
+                    className="flex items-center gap-2"
+                  >
+                    Go to Dashboard
                   </Button>
                 </div>
               </div>

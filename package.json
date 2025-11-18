@@ -22,7 +22,8 @@
     "simple-train-test": "npx tsx src/ml/examples/simpleTrainTest.ts",
     "verify-frontend-training": "npx tsx src/ml/examples/verifyFrontendTraining.ts",
     "verify-actual-strand": "npx tsx src/ml/scripts/verifyActualStrandData.ts",
-    "check-ml-settings": "npx tsx src/ml/scripts/checkMlSettings.ts"
+    "check-ml-settings": "npx tsx src/ml/scripts/checkMlSettings.ts",
+    "compare-models": "npx tsx src/ml/scripts/compareModels.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

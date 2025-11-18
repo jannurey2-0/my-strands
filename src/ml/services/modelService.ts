@@ -3,7 +3,6 @@ import { StrandModel } from '../models/strandModel';
 import { FeatureExtractor } from '../features/featureExtractor';
 import { MODEL_CONFIG } from '../config/modelConfig';
 import { mlAssessmentService } from './mlAssessmentService';
-import { toast } from '@/hooks/use-toast';
 import logger from '@/lib/logger';
 
 /**
@@ -112,18 +111,13 @@ export class ModelService {
       }
       
       logger.info('Model is now ready for predictions during this session.');
+      // Save the model silently without user notification
+      // (Admin will see training notifications in MLModelManagement component)
       try {
         await this.model.saveModel('strand-recommender-v1');
-        toast({
-          title: "Training Complete",
-          description: "Model training completed successfully! The model is ready for use in this session."
-        });
+        logger.info('Model saved successfully');
       } catch (saveError) {
-        logger.warn('Model saving info:', saveError);
-        toast({
-          title: "Training Complete",
-          description: "Model training completed successfully! The model will be available during this session (browser limitation prevents permanent saving)."
-        });
+        logger.warn('Model could not be saved (browser limitation):', saveError);
       }
     } catch (error) {
       logger.error('Failed to train model with available data:', error);

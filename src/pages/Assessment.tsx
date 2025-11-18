@@ -187,9 +187,21 @@ const Assessment = () => {
           
         } catch (error) {
           console.error('Error fetching aptitude questions:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          
+          // Provide user-friendly error messages
+          let userMessage = 'Failed to load questions. ';
+          if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+            userMessage += 'Please check your internet connection and try again.';
+          } else if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+            userMessage += 'You may not have permission to access the questions. Please contact support.';
+          } else {
+            userMessage += 'Please refresh the page or try again later.';
+          }
+          
           toast({
-            title: "Error Loading Questions",
-            description: `Failed to load aptitude questions: ${error.message || 'Unknown error'}. Please try again.`,
+            title: "Cannot Load Questions",
+            description: userMessage,
             variant: "destructive"
           });
         } finally {
@@ -479,10 +491,30 @@ const Assessment = () => {
       
       console.error("Error submitting assessment:", error);
       
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Provide user-friendly error messages
+      let userMessage = '';
+      let title = 'Submission Failed';
+      
+      if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
+        title = 'Connection Error';
+        userMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('timeout')) {
+        title = 'Request Timeout';
+        userMessage = 'The submission is taking too long. Your data has been saved locally. Please try again.';
+      } else if (errorMessage.includes('permission') || errorMessage.includes('access denied')) {
+        title = 'Permission Error';
+        userMessage = 'You do not have permission to submit this assessment. Please contact support.';
+      } else {
+        userMessage = 'An unexpected error occurred. Your answers are saved locally. Please try submitting again.';
+      }
+      
       toast({
-        title: "Submission Error",
-        description: error instanceof Error ? error.message : "Failed to submit assessment. Please try again.",
-        variant: "destructive"
+        title,
+        description: userMessage,
+        variant: "destructive",
+        duration: 7000
       });
     }
   };

@@ -442,6 +442,25 @@ const Dashboard = () => {
         setLoading(false);
       } catch (error) {
         logger.error("Error fetching dashboard data:", error);
+        
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        // Show user-friendly error message
+        let userMessage = '';
+        if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+          userMessage = 'Connection error. Please check your internet and refresh the page.';
+        } else if (errorMessage.includes('permission')) {
+          userMessage = 'Unable to load your data. Please try signing in again.';
+        } else {
+          userMessage = 'Unable to load dashboard. Please refresh the page.';
+        }
+        
+        toast({
+          title: "Dashboard Error",
+          description: userMessage,
+          variant: "destructive"
+        });
+        
         setLoading(false);
       }
     };

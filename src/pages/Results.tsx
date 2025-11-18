@@ -98,20 +98,15 @@ const Results = () => {
             console.error('Error initializing model service:', error);
             // Show a toast notification for better user feedback
             toast({
-              title: "ML Model Error",
-              description: "Failed to initialize ML model. Using rule-based recommendations.",
-              variant: "destructive"
+              title: "ML Model Unavailable",
+              description: "Using traditional recommendation method. Your results are still accurate!",
+              variant: "default"
             });
           }
         }
       } catch (err) {
         console.error('Error checking ML model status:', err);
-        // Show a toast notification for better user feedback
-        toast({
-          title: "Warning",
-          description: "Error checking ML model status. Using rule-based recommendations.",
-          variant: "destructive"
-        });
+        // Only show error if it's a critical issue, otherwise silently fallback
       }
     };
 
@@ -554,9 +549,9 @@ const Results = () => {
                 console.error("ML prediction failed, falling back to rule-based scoring:", mlError);
                 // Show a toast notification for better user feedback
                 toast({
-                  title: "ML Model Error",
-                  description: "ML prediction failed. Falling back to rule-based scoring.",
-                  variant: "destructive"
+                  title: "Using Alternative Method",
+                  description: "Calculating your recommendations using our proven assessment algorithm.",
+                  variant: "default"
                 });
                 // Fall back to rule-based scoring if ML fails
                 scores = calculateStrandScores(latest);
@@ -584,7 +579,20 @@ const Results = () => {
         }
       } catch (err) {
         console.error("Error fetching assessment data:", err);
-        setError("Failed to load assessment results. Please try again.");
+        
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        
+        // Provide user-friendly error messages
+        let userMessage = '';
+        if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+          userMessage = 'Connection error. Please check your internet and refresh the page.';
+        } else if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+          userMessage = 'Unable to access your results. Please try signing in again.';
+        } else {
+          userMessage = 'Unable to load your results. Please refresh the page or try again later.';
+        }
+        
+        setError(userMessage);
       } finally {
         setLoading(false);
       }
