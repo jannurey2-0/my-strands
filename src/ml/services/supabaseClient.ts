@@ -1,24 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
-// Load environment variables for Node.js environment
-if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-  try {
-    const dotenv = await import('dotenv');
-    const path = await import('path');
-    const { fileURLToPath } = await import('url');
-    const { dirname } = path;
-    
-    // Try to load .env file
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const envPath = path.join(__dirname, '../../../.env');
-    dotenv.config({ path: envPath });
-  } catch (error) {
-    // Silently fail if dotenv is not available or .env file doesn't exist
-  }
-}
-
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
