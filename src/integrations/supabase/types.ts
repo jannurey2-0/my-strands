@@ -62,6 +62,7 @@ export type Database = {
           student_id: string
           submitted_at: string
           updated_at: string
+          actual_strand: string | null
         }
         Insert: {
           academic_profile: Json
@@ -74,6 +75,7 @@ export type Database = {
           student_id: string
           submitted_at?: string
           updated_at?: string
+          actual_strand?: string | null
         }
         Update: {
           academic_profile?: Json
@@ -86,6 +88,7 @@ export type Database = {
           student_id?: string
           submitted_at?: string
           updated_at?: string
+          actual_strand?: string | null
         }
         Relationships: [
           {

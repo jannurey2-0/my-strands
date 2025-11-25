@@ -1,0 +1,243 @@
+{
+  "HUMSS": {
+    "description": "Template for Humanities and Social Sciences strand",
+    "basicInfo": {
+      "fullName": "HUMSS Candidate",
+      "age": "16",
+      "gender": "female",
+      "school": "Sample High School",
+      "region": "Region 1",
+      "email": "humss@example.com"
+    },
+    "academicProfile": {
+      "gwa": "88",
+      "favoriteSubject": "Araling Panlipunan",
+      "leastFavoriteSubject": "Mathematics"
+    },
+    "personalInterests": [
+      "Humanities and Social Sciences",
+      "Arts and Design",
+      "Communication"
+    ],
+    "hobbies": [
+      "Reading",
+      "Writing",
+      "Music",
+      "Dancing",
+      "Traveling"
+    ],
+    "aptitudeAnswers": {
+      "1": 2,
+      "2": 2,
+      "3": 5,
+      "4": 3,
+      "5": 2
+    },
+    "expectedStrand": "HUMSS",
+    "scoringNotes": "Favorite subject (Araling Panlipunan) +20, HUMSS interests +15, HUMSS hobbies +15, HUMSS aptitude alignment = ~65 points"
+  },
+  "ABM": {
+    "description": "Template for Accountancy, Business, Management strand",
+    "basicInfo": {
+      "fullName": "ABM Candidate",
+      "age": "17",
+      "gender": "male",
+      "school": "Sample High School",
+      "region": "Region 2",
+      "email": "abm@example.com"
+    },
+    "academicProfile": {
+      "gwa": "85",
+      "favoriteSubject": "Economics",
+      "leastFavoriteSubject": "Araling Panlipunan"
+    },
+    "personalInterests": [
+      "Business and Finance",
+      "Entrepreneurship",
+      "Leadership"
+    ],
+    "hobbies": [
+      "Reading",
+      "Writing",
+      "Board Games",
+      "Collecting",
+      "Entrepreneurial Activities"
+    ],
+    "aptitudeAnswers": {
+      "1": 2,
+      "2": 5,
+      "3": 2,
+      "4": 3,
+      "5": 2
+    },
+    "expectedStrand": "ABM",
+    "scoringNotes": "Favorite subject (Economics) +20, ABM interests +15, ABM hobbies +15, ABM aptitude alignment = ~65 points"
+  },
+  "Arts": {
+    "description": "Template for Arts and Design strand",
+    "basicInfo": {
+      "fullName": "Arts Candidate",
+      "age": "16",
+      "gender": "female",
+      "school": "Sample High School",
+      "region": "Region 3",
+      "email": "arts@example.com"
+    },
+    "academicProfile": {
+      "gwa": "87",
+      "favoriteSubject": "Literature",
+      "leastFavoriteSubject": "Science"
+    },
+    "personalInterests": [
+      "Arts and Design",
+      "Communication",
+      "Humanities and Social Sciences",
+      "Arts and Design",
+      "Arts and Design"
+    ],
+    "hobbies": [
+      "Drawing",
+      "Painting",
+      "Music",
+      "Dancing",
+      "Photography",
+      "Theater/Acting",
+      "Design",
+      "Drawing",
+      "Painting"
+    ],
+    "aptitudeAnswers": {
+      "1": 1,
+      "2": 1,
+      "3": 1,
+      "4": 1,
+      "5": 5
+    },
+    "expectedStrand": "Arts",
+    "scoringNotes": "Favorite subject (Literature) +20, Arts interests +25, Arts hobbies +27, Arts aptitude alignment = ~80 points"
+  },
+  "TVL": {
+    "description": "Template for Technical-Vocational-Livelihood strand",
+    "basicInfo": {
+      "fullName": "TVL Candidate",
+      "age": "17",
+      "gender": "male",
+      "school": "Sample High School",
+      "region": "Region 4",
+      "email": "tvl@example.com"
+    },
+    "academicProfile": {
+      "gwa": "84",
+      "favoriteSubject": "Science",
+      "leastFavoriteSubject": "English"
+    },
+    "personalInterests": [
+      "Technical Vocational Work",
+      "Engineering",
+      "Technical Vocational Work",
+      "Technical Vocational Work",
+      "Technical Vocational Work",
+      "Engineering"
+    ],
+    "hobbies": [
+      "Building/Construction",
+      "Repairing",
+      "Crafting",
+      "Technical Activities",
+      "Building/Construction",
+      "Repairing",
+      "Crafting",
+      "Technical Activities"
+    ],
+    "aptitudeAnswers": {
+      "1": 4,
+      "2": 3,
+      "3": 2,
+      "4": 2,
+      "5": 5
+    },
+    "expectedStrand": "TVL",
+    "scoringNotes": "Favorite subject (Science) +20, TVL interests +25, TVL hobbies +18, TVL aptitude alignment = ~75 points"
+  },
+  "STEM": {
+    "description": "Template for Science, Technology, Engineering, Mathematics strand",
+    "basicInfo": {
+      "fullName": "STEM Candidate",
+      "age": "16",
+      "gender": "male",
+      "school": "Sample High School",
+      "region": "Region 5",
+      "email": "stem@example.com"
+    },
+    "academicProfile": {
+      "gwa": "90",
+      "favoriteSubject": "Mathematics",
+      "leastFavoriteSubject": "English"
+    },
+    "personalInterests": [
+      "Science and Technology",
+      "Technical Vocational Work",
+      "Mathematics"
+    ],
+    "hobbies": [
+      "Video Games",
+      "Coding",
+      "Reading",
+      "Photography",
+      "Building/Construction"
+    ],
+    "aptitudeAnswers": {
+      "1": 5,
+      "2": 2,
+      "3": 2,
+      "4": 2,
+      "5": 2
+    },
+    "expectedStrand": "STEM",
+    "scoringNotes": "Favorite subject (Mathematics) +20, STEM interests +15, STEM hobbies +15, STEM aptitude alignment = ~65 points"
+  },
+  "GAS": {
+    "description": "Template for General Academic Strand",
+    "basicInfo": {
+      "fullName": "GAS Candidate",
+      "age": "16",
+      "gender": "female",
+      "school": "Sample High School",
+      "region": "Region 6",
+      "email": "gas@example.com"
+    },
+    "academicProfile": {
+      "gwa": "86",
+      "favoriteSubject": "English",
+      "leastFavoriteSubject": "Chemistry"
+    },
+    "personalInterests": [
+      "Science and Technology",
+      "Business and Finance",
+      "Humanities and Social Sciences",
+      "Communication",
+      "Arts and Design",
+      "Entrepreneurship",
+      "Science and Technology",
+      "Business and Finance"
+    ],
+    "hobbies": [
+      "Reading",
+      "Writing",
+      "Music",
+      "Sports",
+      "Traveling",
+      "Reading",
+      "Writing"
+    ],
+    "aptitudeAnswers": {
+      "1": 3,
+      "2": 3,
+      "3": 3,
+      "4": 5,
+      "5": 3
+    },
+    "expectedStrand": "GAS",
+    "scoringNotes": "Favorite subject (English) +20, GAS interests +40, GAS hobbies +21, GAS aptitude alignment = ~90 points"
+  }
+}

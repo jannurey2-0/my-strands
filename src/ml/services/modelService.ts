@@ -335,6 +335,65 @@ export class ModelService {
    * @param assessment The assessment data
    * @returns Rule-based scores
    */
+  /**
+   * Calculate aptitude scores for each strand based on assessment answers
+   * @param aptitudeAnswers The aptitude test answers
+   * @returns Normalized scores for each strand
+   */
+  private calculateAptitudeScore(aptitudeAnswers: Record<string, number | string>): Record<string, number> {
+    // Initialize strand scores
+    const strandScores = {
+      stem: 0,
+      abm: 0,
+      humss: 0,
+      gas: 0,
+      tvl: 0,
+      arts: 0
+    };
+
+    // If no answers, return equal scores
+    if (!aptitudeAnswers || Object.keys(aptitudeAnswers).length === 0) {
+      return { stem: 0.17, abm: 0.17, humss: 0.17, gas: 0.17, tvl: 0.17, arts: 0.17 };
+    }
+
+    // Define question-to-strand mappings
+    // These mappings should be adjusted based on your actual aptitude test questions
+    const questionStrandMapping: Record<string, keyof typeof strandScores> = {
+      // Example mappings - adjust based on your actual questions
+      '1': 'stem',  // Question 1 relates to STEM
+      '2': 'abm',   // Question 2 relates to ABM
+      '3': 'humss', // Question 3 relates to HUMSS
+      '4': 'gas',   // Question 4 relates to GAS
+      '5': 'tvl'    // Question 5 relates to TVL
+    };
+
+    // Calculate scores based on answers
+    let totalPoints = 0;
+    Object.entries(aptitudeAnswers).forEach(([questionId, answerValue]) => {
+      const strand = questionStrandMapping[questionId];
+      if (strand && typeof answerValue === 'number') {
+        // Assuming answerValue is on a scale of 1-5, normalize to 0-1
+        const normalizedScore = (answerValue - 1) / 4;
+        strandScores[strand] += normalizedScore;
+        totalPoints += normalizedScore;
+      }
+    });
+
+    // Normalize scores to sum to 1
+    if (totalPoints > 0) {
+      Object.keys(strandScores).forEach(key => {
+        strandScores[key as keyof typeof strandScores] = strandScores[key as keyof typeof strandScores] / totalPoints;
+      });
+    } else {
+      // If no valid answers, distribute equally
+      Object.keys(strandScores).forEach(key => {
+        strandScores[key as keyof typeof strandScores] = 1 / Object.keys(strandScores).length;
+      });
+    }
+
+    return strandScores;
+  }
+
   private getRuleBasedScores(assessment: IAssessment): IStrandPrediction {
     // Calculate strand scores based on assessment responses
     const scores = {
@@ -401,6 +460,19 @@ export class ModelService {
         scores.Arts += 3;
       }
     });
+
+    // Score based on aptitude test results
+    const aptitudeAnswers = assessment.aptitudeAnswers || {};
+    const aptitudeScore = this.calculateAptitudeScore(aptitudeAnswers);
+    
+    // Distribute aptitude score among strands based on category alignment
+    // This gives 15 points maximum from aptitude test
+    scores.STEM += aptitudeScore.stem * 15;
+    scores.ABM += aptitudeScore.abm * 15;
+    scores.HUMSS += aptitudeScore.humss * 15;
+    scores.GAS += aptitudeScore.gas * 15;
+    scores.TVL += aptitudeScore.tvl * 15;
+    scores.Arts += aptitudeScore.arts * 15;
 
     // Normalize scores to percentages
     const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
