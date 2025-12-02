@@ -25,8 +25,8 @@ export interface AssessmentData {
   };
   academicProfile: {
     gwa: string;
-    favoriteSubject: string;
-    leastFavoriteSubject: string;
+    favoriteSubjects: string[]; // Up to 3 favorite subjects
+    leastFavoriteSubjects: string[]; // Up to 3 least favorite subjects
   };
   personalInterests: string[];
   hobbies: string[];

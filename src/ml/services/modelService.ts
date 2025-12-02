@@ -11,6 +11,7 @@ import logger from '@/lib/logger';
 export class ModelService {
   private model: StrandModel;
   private trainingPromise: Promise<void> | null = null;
+  private isInitializing: boolean = false;
   
   constructor() {
     this.model = new StrandModel();
@@ -20,22 +21,54 @@ export class ModelService {
    * Initialize the model
    */
   async initialize(): Promise<void> {
+    // Prevent multiple simultaneous initializations
+    if (this.isInitializing) {
+      logger.info('Model initialization already in progress, waiting...');
+      // Wait for the current initialization to complete
+      while (this.isInitializing) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      // After waiting, verify the model is actually initialized
+      // If initialization failed, the waiting caller should also fail
+      if (!this.model.isInitialized()) {
+        throw new Error('Model initialization failed (waited for concurrent initialization)');
+      }
+      // If model is initialized, we're done - no need to reinitialize
+      logger.info('Model initialization completed by concurrent call');
+      return;
+    }
+    
+    // If model is already initialized and trained, don't reinitialize
+    if (this.model.isInitialized() && this.model.isModelTrained()) {
+      logger.info('Model already initialized and trained');
+      return;
+    }
+    
     try {
+      this.isInitializing = true;
       await this.model.initialize();
       logger.info('Model service initialized successfully');
       
-      // Attempt to load a pre-trained model
-      const modelLoaded = await this.model.loadModel('strand-recommender-v1');
-      if (modelLoaded) {
-        logger.info('Pre-trained model loaded successfully');
+      // Attempt to load a pre-trained model from Supabase Storage first, then local storage
+      // Try Supabase Storage first (shared model)
+      const modelLoadedFromSupabase = await this.model.loadModel('strand-recommender-v1', true);
+      if (modelLoadedFromSupabase) {
+        logger.info('Pre-trained model loaded successfully from Supabase Storage');
       } else {
-        logger.info('No pre-trained model found. Model will need to be trained.');
-        // Start training the model with available data
-        this.trainingPromise = this.trainModelWithAvailableData();
+        // Try local storage (IndexedDB or file system)
+        const modelLoadedLocal = await this.model.loadModel('strand-recommender-v1', false);
+        if (modelLoadedLocal) {
+          logger.info('Pre-trained model loaded successfully from local storage');
+        } else {
+          logger.info('No pre-trained model found. Model will need to be trained manually by admin.');
+          // Do NOT start training automatically - admin must click "Train Model" button
+        }
       }
     } catch (error) {
       logger.error('Failed to initialize model service:', error);
       throw new Error(`Model service initialization failed: ${error.message || error}`);
+    } finally {
+      this.isInitializing = false;
     }
   }
   
@@ -111,13 +144,26 @@ export class ModelService {
       }
       
       logger.info('Model is now ready for predictions during this session.');
-      // Save the model silently without user notification
+      // Save the model to Supabase Storage (shared) and local storage
       // (Admin will see training notifications in MLModelManagement component)
       try {
-        await this.model.saveModel('strand-recommender-v1');
-        logger.info('Model saved successfully');
+        // Save to Supabase Storage first (shared model for all users)
+        const savedToSupabase = await this.model.saveModel('strand-recommender-v1', true);
+        if (savedToSupabase) {
+          logger.info('Model saved successfully to Supabase Storage');
+        } else {
+          logger.warn('Model could not be saved to Supabase Storage');
+        }
+        
+        // Also save to local storage for faster loading
+        try {
+          await this.model.saveModel('strand-recommender-v1', false);
+          logger.info('Model saved successfully to local storage');
+        } catch (localSaveError) {
+          logger.warn('Model could not be saved to local storage:', localSaveError);
+        }
       } catch (saveError) {
-        logger.warn('Model could not be saved (browser limitation):', saveError);
+        logger.warn('Model could not be saved:', saveError);
       }
     } catch (error) {
       logger.error('Failed to train model with available data:', error);
@@ -129,8 +175,16 @@ export class ModelService {
    */
   async waitForTraining(): Promise<void> {
     if (this.trainingPromise) {
-      await this.trainingPromise;
-      this.trainingPromise = null;
+      try {
+        await this.trainingPromise;
+      } catch (error) {
+        // If training fails, log it but don't throw - we'll fallback to rule-based
+        logger.warn('Training completed with errors, will use fallback if needed:', error);
+      } finally {
+        // Only clear the promise if training completed (successfully or not)
+        // This prevents multiple training sessions
+        this.trainingPromise = null;
+      }
     }
   }
   
@@ -231,7 +285,10 @@ export class ModelService {
       }
       
       // Make prediction
-      const prediction = await this.model.predict(features);
+      let prediction = await this.model.predict(features);
+      
+      // Apply debiasing if HUMSS bias is detected
+      prediction = this.debiasPredictions(prediction);
       
       return prediction;
     } catch (error) {
@@ -251,16 +308,35 @@ export class ModelService {
   /**
    * Save the trained model
    * @param modelName The name to save the model under
+   * @param saveToSupabase Whether to save to Supabase Storage (default: true)
    */
-  async saveModel(modelName: string = 'strand-model'): Promise<boolean> {
+  async saveModel(modelName: string = 'strand-model', saveToSupabase: boolean = true): Promise<boolean> {
     try {
-      const saved = await this.model.saveModel(modelName);
-      if (saved) {
-        logger.info(`Model saved successfully as ${modelName}`);
-      } else {
-        logger.warn(`Failed to save model as ${modelName}`);
+      // Save to Supabase Storage (shared model)
+      let savedToSupabase = false;
+      if (saveToSupabase) {
+        savedToSupabase = await this.model.saveModel(modelName, true);
+        if (savedToSupabase) {
+          logger.info(`Model saved successfully to Supabase Storage as ${modelName}`);
+        } else {
+          logger.warn(`Failed to save model to Supabase Storage as ${modelName}`);
+        }
       }
-      return saved;
+      
+      // Also save to local storage for faster loading
+      let savedLocal = false;
+      try {
+        savedLocal = await this.model.saveModel(modelName, false);
+        if (savedLocal) {
+          logger.info(`Model saved successfully to local storage as ${modelName}`);
+        }
+      } catch (localError) {
+        logger.warn('Failed to save model to local storage:', localError);
+      }
+      
+      // Return true if ANY save succeeded (Supabase OR local)
+      // This ensures correct status reporting when one succeeds and the other fails
+      return savedToSupabase || savedLocal;
     } catch (error) {
       logger.error('Failed to save model:', error);
       return false;
@@ -405,15 +481,39 @@ export class ModelService {
       Arts: 0
     };
 
-    // Score based on favorite subject
-    const favoriteSubject = assessment.academicProfile?.favoriteSubject || '';
-    if (MODEL_CONFIG.subjectMappings.stem.includes(favoriteSubject)) {
-      scores.STEM += 20;
-    } else if (MODEL_CONFIG.subjectMappings.abm.includes(favoriteSubject)) {
-      scores.ABM += 20;
-    } else if (MODEL_CONFIG.subjectMappings.humss.includes(favoriteSubject)) {
-      scores.HUMSS += 20;
-    }
+    // Score based on favorite subjects (up to 3)
+    const favoriteSubjects = Array.isArray(assessment.academicProfile?.favoriteSubjects) 
+      ? assessment.academicProfile.favoriteSubjects 
+      : [];
+    
+    // Distribute points across favorite subjects (20 points total, divided by number of subjects)
+    const pointsPerSubject = favoriteSubjects.length > 0 ? 20 / favoriteSubjects.length : 0;
+    favoriteSubjects.forEach(subject => {
+      if (MODEL_CONFIG.subjectMappings.stem.includes(subject)) {
+        scores.STEM += pointsPerSubject;
+      } else if (MODEL_CONFIG.subjectMappings.abm.includes(subject)) {
+        scores.ABM += pointsPerSubject;
+      } else if (MODEL_CONFIG.subjectMappings.humss.includes(subject)) {
+        scores.HUMSS += pointsPerSubject;
+      }
+    });
+
+    // Score based on least favorite subjects (penalty system)
+    const leastFavoriteSubjects = Array.isArray(assessment.academicProfile?.leastFavoriteSubjects) 
+      ? assessment.academicProfile.leastFavoriteSubjects 
+      : [];
+    
+    // Apply penalties for least favorite subjects (reduce scores for strands that require those subjects)
+    const penaltyPerSubject = leastFavoriteSubjects.length > 0 ? 8 / leastFavoriteSubjects.length : 0;
+    leastFavoriteSubjects.forEach(subject => {
+      if (MODEL_CONFIG.subjectMappings.stem.includes(subject)) {
+        scores.STEM -= penaltyPerSubject;
+      } else if (MODEL_CONFIG.subjectMappings.abm.includes(subject)) {
+        scores.ABM -= penaltyPerSubject;
+      } else if (MODEL_CONFIG.subjectMappings.humss.includes(subject)) {
+        scores.HUMSS -= penaltyPerSubject;
+      }
+    });
 
     // Score based on interests
     const interests = assessment.personalInterests || [];
@@ -488,6 +588,51 @@ export class ModelService {
     }
 
     return scores;
+  }
+  
+  /**
+   * Apply debiasing to predictions to reduce HUMSS bias
+   * @param prediction Raw prediction from model
+   * @returns Debiased prediction
+   */
+  private debiasPredictions(prediction: IStrandPrediction): IStrandPrediction {
+    // Check if HUMSS is disproportionately high
+    const humssScore = prediction.HUMSS;
+    const avgScore = (prediction.STEM + prediction.ABM + prediction.HUMSS + 
+                     prediction.GAS + prediction.TVL + prediction.Arts) / 6;
+    
+    // If HUMSS is more than 1.5x the average, apply debiasing
+    if (humssScore > avgScore * 1.5) {
+      logger.debug(`Applying debiasing: HUMSS score (${humssScore.toFixed(2)}%) is ${(humssScore / avgScore).toFixed(2)}x the average`);
+      
+      // Reduce HUMSS by 20% and redistribute to other strands
+      const reduction = humssScore * 0.2;
+      const debiased: IStrandPrediction = {
+        STEM: prediction.STEM + (reduction * 0.2),
+        ABM: prediction.ABM + (reduction * 0.2),
+        HUMSS: prediction.HUMSS - reduction,
+        GAS: prediction.GAS + (reduction * 0.2),
+        TVL: prediction.TVL + (reduction * 0.2),
+        Arts: prediction.Arts + (reduction * 0.2),
+      };
+      
+      // Renormalize to ensure sum is approximately 100
+      const total = debiased.STEM + debiased.ABM + debiased.HUMSS + 
+                   debiased.GAS + debiased.TVL + debiased.Arts;
+      
+      if (total > 0) {
+        return {
+          STEM: Math.max(0, Math.min(100, (debiased.STEM / total) * 100)),
+          ABM: Math.max(0, Math.min(100, (debiased.ABM / total) * 100)),
+          HUMSS: Math.max(0, Math.min(100, (debiased.HUMSS / total) * 100)),
+          GAS: Math.max(0, Math.min(100, (debiased.GAS / total) * 100)),
+          TVL: Math.max(0, Math.min(100, (debiased.TVL / total) * 100)),
+          Arts: Math.max(0, Math.min(100, (debiased.Arts / total) * 100)),
+        };
+      }
+    }
+    
+    return prediction;
   }
   
   /**

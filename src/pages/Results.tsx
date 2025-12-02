@@ -194,8 +194,11 @@ const Results = () => {
     
     const academicProfile = assessment.academic_profile as { 
       gwa: string; 
-      favoriteSubject: string; 
-      leastFavoriteSubject: string 
+      favoriteSubjects?: string[];
+      leastFavoriteSubjects?: string[];
+      // Legacy support for single subject fields
+      favoriteSubject?: string;
+      leastFavoriteSubject?: string;
     };
     
     const personalInterests = assessment.personal_interests as string[];
@@ -208,14 +211,22 @@ const Results = () => {
       // Higher score for better GWA (100 is highest, 75 is lowest)
       const gwaScore = Math.max(0, Math.min(100, (gwa - 75) * 4)); // Scale to 0-100
       
-      // Subject preference scoring with weighted points
-      if (["Mathematics", "Science", "Computer Science", "Physics", "Chemistry"].includes(academicProfile.favoriteSubject)) {
-        scores.STEM += 15 + (gwaScore * 0.10);
-      } else if (["Business Math", "Economics", "Accounting", "Entrepreneurship"].includes(academicProfile.favoriteSubject)) {
-        scores.ABM += 15 + (gwaScore * 0.10);
-      } else if (["English", "Araling Panlipunan", "Literature", "History", "Philosophy"].includes(academicProfile.favoriteSubject)) {
-        scores.HUMSS += 15 + (gwaScore * 0.10);
-      }
+      // Handle both array and legacy single subject format
+      const favoriteSubjects = Array.isArray(academicProfile.favoriteSubjects) 
+        ? academicProfile.favoriteSubjects 
+        : (academicProfile.favoriteSubject ? [academicProfile.favoriteSubject] : []);
+      
+      // Distribute points across favorite subjects (15 points total, divided by number of subjects)
+      const basePointsPerSubject = favoriteSubjects.length > 0 ? 15 / favoriteSubjects.length : 0;
+      favoriteSubjects.forEach(subject => {
+        if (["Mathematics", "Science", "Computer Science", "Physics", "Chemistry"].includes(subject)) {
+          scores.STEM += basePointsPerSubject + (gwaScore * 0.10 / favoriteSubjects.length);
+        } else if (["Business Math", "Economics", "Accounting", "Entrepreneurship"].includes(subject)) {
+          scores.ABM += basePointsPerSubject + (gwaScore * 0.10 / favoriteSubjects.length);
+        } else if (["English", "Araling Panlipunan", "Literature", "History", "Philosophy"].includes(subject)) {
+          scores.HUMSS += basePointsPerSubject + (gwaScore * 0.10 / favoriteSubjects.length);
+        }
+      });
     }
 
     // 2. Interest Alignment Scoring (15% weight)
@@ -500,6 +511,13 @@ const Results = () => {
 
       try {
         setLoading(true);
+        
+        // Re-check ML model status to ensure we have the latest value
+        // This prevents race conditions where the status check hasn't completed yet
+        const isMlEnabled = await assessmentService.isMlModelEnabled();
+        setMlModelEnabled(isMlEnabled);
+        console.log('ML Model Status Check:', { isMlEnabled, mlModelEnabled });
+        
         const assessments = await assessmentService.getStudentAssessments(profile.id);
       
         if (assessments && assessments.length > 0) {
@@ -513,11 +531,16 @@ const Results = () => {
           if (latest.recommendations) {
             scores = latest.recommendations as Record<string, number>;
           } else {
-            // Check if ML model is enabled
-            if (mlModelEnabled) {
+            // Check if ML model is enabled (use the freshly checked value)
+            if (isMlEnabled) {
               try {
                 // Use ML model for predictions
                 console.log("Using ML model for predictions");
+              
+                // Ensure model service is initialized
+                if (!modelService.isModelReady()) {
+                  await modelService.initialize();
+                }
               
                 // Convert to IAssessment format
                 const assessmentData: IAssessment = {
@@ -599,7 +622,7 @@ const Results = () => {
     };
 
     fetchAssessmentData();
-  }, [user, profile, maintenance?.isUnderMaintenance, mlModelEnabled, modelService]);
+  }, [user, profile, maintenance?.isUnderMaintenance, modelService]);
 
   // Get badge variant based on percentage
   const getMatchBadgeVariant = (percentage: number) => {

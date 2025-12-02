@@ -13,8 +13,8 @@ export interface IAssessment {
   // Academic profile
   academicProfile: {
     gwa: string; // General Weighted Average
-    favoriteSubject: string;
-    leastFavoriteSubject: string;
+    favoriteSubjects: string[]; // Up to 3 favorite subjects
+    leastFavoriteSubjects: string[]; // Up to 3 least favorite subjects
   };
   
   // Personal interests and hobbies

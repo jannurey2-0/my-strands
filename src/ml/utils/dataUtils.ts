@@ -110,8 +110,12 @@ export class DataUtils {
       },
       academicProfile: {
         gwa: assessment.academicProfile?.gwa || '75',
-        favoriteSubject: assessment.academicProfile?.favoriteSubject || 'Other',
-        leastFavoriteSubject: assessment.academicProfile?.leastFavoriteSubject || 'Other',
+        favoriteSubjects: Array.isArray(assessment.academicProfile?.favoriteSubjects) 
+          ? assessment.academicProfile.favoriteSubjects 
+          : (assessment.academicProfile?.favoriteSubject ? [assessment.academicProfile.favoriteSubject] : ['Other']),
+        leastFavoriteSubjects: Array.isArray(assessment.academicProfile?.leastFavoriteSubjects) 
+          ? assessment.academicProfile.leastFavoriteSubjects 
+          : (assessment.academicProfile?.leastFavoriteSubject ? [assessment.academicProfile.leastFavoriteSubject] : ['Other']),
       },
       personalInterests: Array.isArray(assessment.personalInterests) ? assessment.personalInterests : [],
       hobbies: Array.isArray(assessment.hobbies) ? assessment.hobbies : [],

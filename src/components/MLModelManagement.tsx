@@ -159,23 +159,28 @@ export const MLModelManagement = () => {
     }
   };
 
-  // Initialize model on component mount
+  // Initialize model on component mount (without auto-training)
   useEffect(() => {
     const initializeModel = async () => {
       try {
-        toast({
-          title: "Model Initialization",
-          description: "Initializing ML model..."
-        });
-        
+        // Only initialize the model architecture, don't start training
+        // Training will only happen when admin clicks "Train Model" button
         await modelService.initialize();
         setModelStatus(prev => ({ ...prev, isInitialized: true }));
         await fetchModelStatus();
         
-        toast({
-          title: "Model Ready",
-          description: "ML model initialized successfully!"
-        });
+        // Only show success toast if model was loaded, not if it needs training
+        if (modelService.isModelReady()) {
+          toast({
+            title: "Model Ready",
+            description: "ML model loaded successfully!"
+          });
+        } else {
+          toast({
+            title: "Model Initialized",
+            description: "Model architecture ready. Click 'Train Model' to start training."
+          });
+        }
       } catch (error) {
         logger.error('Error initializing model:', error);
         setModelStatus(prev => ({ 
@@ -207,6 +212,16 @@ export const MLModelManagement = () => {
     }
 
     try {
+      // Ensure model is initialized before training
+      if (!modelService.isModelReady() && !modelStatus.isInitialized) {
+        toast({
+          title: "Initializing Model",
+          description: "Initializing model architecture before training..."
+        });
+        await modelService.initialize();
+        setModelStatus(prev => ({ ...prev, isInitialized: true }));
+      }
+      
       // Set the lock
       setTrainingLock(true);
       setModelStatus(prev => ({ ...prev, trainingInProgress: true, trainingError: undefined }));
@@ -335,18 +350,25 @@ export const MLModelManagement = () => {
         console.warn('Error updating last trained timestamp:', updateError);
       }
       
-      // Try to save the trained model (will show warning in browser environment)
+      // Save the trained model to Supabase Storage (shared) and local storage
       try {
-        await modelService.saveModel();
-        toast({
-          title: "Training Complete",
-          description: "Model training completed successfully! The model will be available during this session (browser limitation prevents permanent saving)."
-        });
+        const saved = await modelService.saveModel('strand-recommender-v1', true);
+        if (saved) {
+          toast({
+            title: "Training Complete",
+            description: "Model training completed successfully! The model has been saved to Supabase Storage and is now available for all users."
+          });
+        } else {
+          toast({
+            title: "Training Complete (Local Only)",
+            description: "Model training completed successfully! The model is saved locally but could not be uploaded to Supabase Storage. Please check storage permissions."
+          });
+        }
       } catch (saveError) {
         console.warn('Model saving warning:', saveError);
         toast({
           title: "Training Complete (Session Only)",
-          description: "Model training completed successfully! The model will be available during this session but won't persist after refresh."
+          description: "Model training completed successfully! The model will be available during this session but could not be saved."
         });
       }
       

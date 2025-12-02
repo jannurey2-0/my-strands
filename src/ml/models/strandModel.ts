@@ -2,6 +2,7 @@ import * as tf from '@tensorflow/tfjs';
 import { IAssessmentFeatures, IStrandPrediction } from '../interfaces/IAssessment';
 import { MODEL_CONFIG } from '../config/modelConfig';
 import { FeatureExtractor } from '../features/featureExtractor';
+import { modelStorageService } from '../services/modelStorageService';
 
 // Check if we're in a Node.js environment
 const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
@@ -15,6 +16,7 @@ console.debug(`Running in ${isNode ? 'Node.js' : 'Browser'} environment`);
 export class StrandModel {
   private model: tf.LayersModel | null = null;
   private isTrained: boolean = false;
+  private isTraining: boolean = false;
   
   /**
    * Initialize the model architecture
@@ -85,6 +87,23 @@ export class StrandModel {
       throw new Error('Model not initialized. Call initialize() first.');
     }
     
+    // Prevent concurrent training
+    if (this.isTraining) {
+      throw new Error('Cannot start training because another fit() call is ongoing.');
+    }
+    
+    // Ensure model is compiled before training
+    // This is necessary when the model is loaded from storage
+    if (!this.model.built || !this.model.optimizer) {
+      console.log('Model needs to be compiled before training. Compiling now...');
+      this.model.compile({
+        optimizer: tf.train.adam(MODEL_CONFIG.training.learningRate),
+        loss: 'categoricalCrossentropy',
+        metrics: ['accuracy'],
+      });
+      console.log('Model compiled successfully');
+    }
+    
     // Validate input data
     if (!features || features.length === 0) {
       throw new Error('Training features cannot be empty');
@@ -115,6 +134,7 @@ export class StrandModel {
     let ys: tf.Tensor2D | null = null;
     
     try {
+      this.isTraining = true;
       xs = tf.tensor2d(features);
       ys = tf.tensor2d(labels);
       
@@ -156,6 +176,8 @@ export class StrandModel {
       console.error('Model training failed:', error);
       throw new Error(`Model training failed: ${error.message || error}`);
     } finally {
+      // Always reset training flag and clean up tensors
+      this.isTraining = false;
       // Clean up tensors in finally block to ensure they're always disposed
       try {
         if (xs) {
@@ -254,8 +276,9 @@ export class StrandModel {
   /**
    * Save the trained model
    * @param modelName The name to save the model under
+   * @param saveToSupabase Whether to save to Supabase Storage (default: true in browser, false in Node.js)
    */
-  async saveModel(modelName: string = 'strand-model'): Promise<boolean> {
+  async saveModel(modelName: string = 'strand-model', saveToSupabase: boolean = !isNode): Promise<boolean> {
     if (!this.model) {
       throw new Error('Model not initialized. Call initialize() first.');
     }
@@ -264,16 +287,15 @@ export class StrandModel {
       throw new Error('Cannot save untrained model. Train the model first.');
     }
     
-    // Only save in Node.js environment
-    if (!isNode) {
-      console.debug('Model saving skipped - running in browser environment');
-      // In browser environment, we can't save to file system
-      // but the model will remain in memory during the session
-      return false;
-    }
-    
     try {
-      console.debug(`Attempting to save model: ${modelName}`);
+      // In browser environment, save to Supabase Storage
+      if (saveToSupabase || !isNode) {
+        console.debug('Saving model to Supabase Storage...');
+        return await this.saveModelToSupabase();
+      }
+      
+      // In Node.js environment, save to file system
+      console.debug(`Attempting to save model to file system: ${modelName}`);
       
       // Dynamically import Node.js modules when needed
       const fsModule = await import('fs');
@@ -309,60 +331,323 @@ export class StrandModel {
       return false;
     }
   }
-  
+
   /**
-   * Load a saved model from file system
-   * @param modelName The name of the model to load
+   * Save model to Supabase Storage
+   * Uses TensorFlow.js save to IndexedDB first to get the correct format, then uploads to Supabase
    */
-  async loadModel(modelName: string = 'strand-model'): Promise<boolean> {
-    // Only load in Node.js environment
-    if (!isNode) {
-      console.debug('Model loading skipped - running in browser environment');
-      // In browser environment, we can't load from file system
-      // The model must be retrained in each session
-      this.isTrained = false;
+  private async saveModelToSupabase(): Promise<boolean> {
+    try {
+      // Step 1: Save model to IndexedDB temporarily to get the correct TensorFlow.js format
+      const tempModelPath = 'indexeddb://temp-model-upload';
+      console.log('Saving model to IndexedDB temporarily to get correct format...');
+      
+      // Save the model - this creates the correct format
+      await this.model.save(tempModelPath);
+      
+      // Step 2: Load the model back from IndexedDB to get the artifacts
+      // This ensures we have the exact format TensorFlow.js uses
+      const loadedModel = await tf.loadLayersModel(tempModelPath);
+      
+      // Step 3: Get the model artifacts by saving again and capturing them
+      // Actually, we can use the IO handler directly
+      const ioHandler = await tf.io.getLoadHandlers(tempModelPath);
+      if (!ioHandler || ioHandler.length === 0) {
+        throw new Error('Failed to get IO handler for IndexedDB model');
+      }
+      
+      // Load the artifacts
+      const artifacts = await ioHandler[0].load();
+      
+      if (!artifacts || !artifacts.modelTopology) {
+        throw new Error('Failed to load model artifacts from IndexedDB');
+      }
+      
+      // Step 4: Extract the model topology and weights
+      const modelTopology = artifacts.modelTopology;
+      const weightSpecs = artifacts.weightSpecs || [];
+      const weightData = artifacts.weightData;
+      
+      if (!modelTopology) {
+        throw new Error('Model topology is missing');
+      }
+      
+      if (!weightData) {
+        throw new Error('Weight data is missing');
+      }
+      
+      // Verify the structure
+      console.log('Model topology type:', typeof modelTopology);
+      console.log('Model topology keys:', modelTopology ? Object.keys(modelTopology).slice(0, 10) : 'null');
+      console.log('Weight specs count:', weightSpecs.length);
+      console.log('Weight data size:', weightData.byteLength);
+      
+      // Step 5: Create the proper model.json format
+      const modelJson = {
+        modelTopology: modelTopology,
+        weightsManifest: [{
+          paths: ['weights.bin'],
+          weights: weightSpecs
+        }]
+      };
+      
+      // Verify the JSON structure before uploading
+      console.log('Model JSON structure:', {
+        hasModelTopology: !!modelJson.modelTopology,
+        hasWeightsManifest: !!modelJson.weightsManifest,
+        weightsManifestLength: modelJson.weightsManifest?.length || 0,
+        weightsCount: modelJson.weightsManifest?.[0]?.weights?.length || 0
+      });
+      
+      // Step 6: Upload to Supabase Storage
+      const uploadResult = await modelStorageService.uploadModel(
+        modelJson,
+        weightData
+      );
+      
+      // Step 7: Clean up temporary IndexedDB model
+      try {
+        await tf.io.removeModel(tempModelPath);
+        console.log('Cleaned up temporary IndexedDB model');
+      } catch (cleanupError) {
+        console.warn('Failed to clean up temporary model (non-critical):', cleanupError);
+      }
+      
+      // Dispose the loaded model
+      loadedModel.dispose();
+      
+      if (uploadResult.success) {
+        console.log('Model saved successfully to Supabase Storage');
+        return true;
+      } else {
+        throw new Error(uploadResult.error || 'Failed to upload model');
+      }
+    } catch (error) {
+      console.error('Failed to save model to Supabase Storage:', error);
       return false;
     }
-    
+  }
+  
+  /**
+   * Load a saved model
+   * @param modelName The name of the model to load
+   * @param loadFromSupabase Whether to load from Supabase Storage first (default: true in browser)
+   */
+  async loadModel(modelName: string = 'strand-model', loadFromSupabase: boolean = !isNode): Promise<boolean> {
     try {
-      console.debug(`Attempting to load model: ${modelName}`);
-      
-      // Dynamically import Node.js modules when needed
-      const pathModule = await import('path');
-      const path = pathModule.default;
-      
-      const modelsDir = path.join(process.cwd(), 'models');
-      const modelPath = path.join(modelsDir, modelName);
-      
-      // Check if model file exists before attempting to load
-      const fsModule = await import('fs');
-      const fs = fsModule.default;
-      
-      // Check for model.json file which indicates a saved model
-      const modelJsonPath = path.join(modelPath, 'model.json');
-      if (!fs.existsSync(modelJsonPath)) {
-        console.warn(`Model file not found at ${modelPath}. Model must be retrained.`);
-        this.isTrained = false;
-        return false;
+      // Only try Supabase Storage if explicitly requested (respects loadFromSupabase parameter)
+      // This allows proper fallback: try Supabase first (true), then local only (false)
+      if (loadFromSupabase) {
+        console.debug('Attempting to load model from Supabase Storage...');
+        const loadedFromSupabase = await this.loadModelFromSupabase();
+        if (loadedFromSupabase) {
+          return true;
+        }
+        console.debug('Model not found in Supabase Storage, trying local storage...');
       }
       
-      // Load the model using the correct path format
-      const loadPath = 'file:///' + modelPath.replace(/\\/g, '/');
-      console.debug(`Loading model from: ${loadPath}`);
-      try {
-        this.model = await tf.loadLayersModel(loadPath);
-      } catch (loadError) {
-        console.warn('Failed to load model with file:// protocol, trying alternative approach:', loadError);
-        // Fallback: Try without the protocol prefix
-        this.model = await tf.loadLayersModel(modelPath);
+      // Try loading from IndexedDB (browser) or file system (Node.js)
+      if (!isNode) {
+        // Browser: Try IndexedDB
+        try {
+          this.model = await tf.loadLayersModel('indexeddb://strand-recommender-v1');
+          this.isTrained = true;
+          console.log('Model loaded successfully from IndexedDB');
+          
+          // Ensure the loaded model is compiled (required for training)
+          if (!this.model.built || !this.model.optimizer) {
+            console.log('Recompiling loaded model for training compatibility...');
+            this.model.compile({
+              optimizer: tf.train.adam(MODEL_CONFIG.training.learningRate),
+              loss: 'categoricalCrossentropy',
+              metrics: ['accuracy'],
+            });
+            console.log('Model recompiled successfully');
+          }
+          
+          return true;
+        } catch (indexedDBError) {
+          console.debug('Model not found in IndexedDB or failed to load:', indexedDBError);
+          // If IndexedDB load failed, try to clear it and retry from Supabase
+          try {
+            await tf.io.removeModel('indexeddb://strand-recommender-v1');
+            console.log('Cleared potentially corrupted IndexedDB model cache');
+          } catch (clearError) {
+            console.debug('Could not clear IndexedDB cache (non-critical):', clearError);
+          }
+          this.isTrained = false;
+          return false;
+        }
+      } else {
+        // Node.js: Try file system
+        console.debug(`Attempting to load model from file system: ${modelName}`);
+        
+        // Dynamically import Node.js modules when needed
+        const pathModule = await import('path');
+        const path = pathModule.default;
+        
+        const modelsDir = path.join(process.cwd(), 'models');
+        const modelPath = path.join(modelsDir, modelName);
+        
+        // Check if model file exists before attempting to load
+        const fsModule = await import('fs');
+        const fs = fsModule.default;
+        
+        // Check for model.json file which indicates a saved model
+        const modelJsonPath = path.join(modelPath, 'model.json');
+        if (!fs.existsSync(modelJsonPath)) {
+          console.warn(`Model file not found at ${modelPath}. Model must be retrained.`);
+          this.isTrained = false;
+          return false;
+        }
+        
+        // Load the model using the correct path format
+        const loadPath = 'file:///' + modelPath.replace(/\\/g, '/');
+        console.debug(`Loading model from: ${loadPath}`);
+        try {
+          this.model = await tf.loadLayersModel(loadPath);
+        } catch (loadError) {
+          console.warn('Failed to load model with file:// protocol, trying alternative approach:', loadError);
+          // Fallback: Try without the protocol prefix
+          this.model = await tf.loadLayersModel(modelPath);
+        }
+        this.isTrained = true;
+        console.log(`Model loaded successfully from ${modelPath}`);
+        return true;
       }
-      this.isTrained = true;
-      console.log(`Model loaded successfully from ${modelPath}`);
-      return true;
     } catch (error) {
       console.error(`Failed to load model from ${modelName}:`, error);
       this.isTrained = false;
       // Don't throw error, just return false to indicate loading failed
+      return false;
+    }
+  }
+
+  /**
+   * Load model from Supabase Storage
+   */
+  private async loadModelFromSupabase(): Promise<boolean> {
+    try {
+      console.log('Checking if model exists in Supabase Storage...');
+      // First check if model exists in Supabase Storage
+      const modelExists = await modelStorageService.modelExists();
+      console.log('Model exists check result:', modelExists);
+      
+      if (!modelExists) {
+        console.warn('Model does not exist in Supabase Storage');
+        return false;
+      }
+
+      // Get model URL from Supabase Storage
+      const modelUrl = await modelStorageService.getModelUrl();
+      console.log('Model URL from Supabase Storage:', modelUrl);
+      
+      if (!modelUrl) {
+        console.warn('Model URL not available from Supabase Storage');
+        return false;
+      }
+
+      // Load model directly from Supabase Storage public URL
+      // TensorFlow.js can load models from HTTP URLs
+      console.log(`Attempting to load model from Supabase Storage: ${modelUrl}`);
+      
+      try {
+        // First, verify the model.json format by fetching it with cache-busting
+        // Add timestamp to bypass browser and CDN cache
+        const cacheBustUrl = `${modelUrl}?t=${Date.now()}`;
+        console.log('Fetching model.json with cache-busting:', cacheBustUrl);
+        
+        const response = await fetch(cacheBustUrl, {
+          cache: 'no-store', // Force no cache
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch model.json: ${response.status} ${response.statusText}`);
+        }
+        
+        const modelJson = await response.json();
+        
+        // Log the actual structure for debugging
+        console.log('Fetched model.json structure:', {
+          type: typeof modelJson,
+          isArray: Array.isArray(modelJson),
+          keys: modelJson && typeof modelJson === 'object' ? Object.keys(modelJson).slice(0, 10) : 'N/A',
+          hasModelTopology: !!(modelJson && typeof modelJson === 'object' && 'modelTopology' in modelJson),
+          hasWeightsManifest: !!(modelJson && typeof modelJson === 'object' && 'weightsManifest' in modelJson)
+        });
+        
+        // Verify the JSON has the required structure
+        if (!modelJson || typeof modelJson !== 'object' || Array.isArray(modelJson)) {
+          console.error('Invalid model.json format: expected object, got:', typeof modelJson, Array.isArray(modelJson) ? 'array' : '');
+          console.error('Model JSON sample:', JSON.stringify(modelJson).substring(0, 200));
+          throw new Error('Invalid model.json format: expected object with modelTopology field. The model may need to be re-saved.');
+        }
+        
+        if (!modelJson.modelTopology) {
+          console.error('Invalid model.json format: missing modelTopology');
+          console.error('Model JSON structure:', Object.keys(modelJson));
+          console.error('Model JSON sample:', JSON.stringify(modelJson).substring(0, 500));
+          throw new Error('Invalid model.json format: missing modelTopology field. The model may need to be re-saved.');
+        }
+        
+        if (!modelJson.weightsManifest || !Array.isArray(modelJson.weightsManifest)) {
+          console.error('Invalid model.json format: missing or invalid weightsManifest');
+          throw new Error('Invalid model.json format: missing weightsManifest. The model may need to be re-saved.');
+        }
+        
+        console.log('Model.json format verified, loading model...');
+        
+        // Use cache-busting URL for TensorFlow.js load as well
+        this.model = await tf.loadLayersModel(cacheBustUrl);
+        this.isTrained = true;
+        console.log('✅ Model loaded successfully from Supabase Storage');
+        
+        // Ensure the loaded model is compiled (required for training)
+        // Loaded models should already be compiled, but we verify and recompile if needed
+        if (!this.model.built || !this.model.optimizer) {
+          console.log('Recompiling loaded model for training compatibility...');
+          this.model.compile({
+            optimizer: tf.train.adam(MODEL_CONFIG.training.learningRate),
+            loss: 'categoricalCrossentropy',
+            metrics: ['accuracy'],
+          });
+          console.log('Model recompiled successfully');
+        }
+        
+        // Also save to IndexedDB for faster loading next time
+        try {
+          await this.model.save('indexeddb://strand-recommender-v1');
+          console.log('Model cached to IndexedDB for faster future loading');
+        } catch (cacheError) {
+          console.warn('Failed to cache model to IndexedDB:', cacheError);
+          // Not critical, continue anyway
+        }
+        
+        return true;
+      } catch (loadError) {
+        console.error('Failed to load model from URL:', loadError);
+        console.error('Model URL was:', modelUrl);
+        // Try to provide more helpful error message
+        if (loadError instanceof Error) {
+          console.error('Error details:', loadError.message);
+          if (loadError.message.includes('model_config') || loadError.message.includes('modelTopology')) {
+            console.error('⚠️ The model.json file appears to be in an incorrect format.');
+            console.error('⚠️ This might be due to caching. Try clearing your browser cache or wait a few moments and refresh.');
+            console.error('⚠️ If the issue persists, please delete the existing model from Supabase Storage and re-train/re-save it.');
+          }
+        }
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to load model from Supabase Storage:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       return false;
     }
   }

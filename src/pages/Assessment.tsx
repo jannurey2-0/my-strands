@@ -120,8 +120,8 @@ const Assessment = () => {
     
     // Step 2: Academic Profile
     gwa: "",
-    favoriteSubject: "",
-    leastFavoriteSubject: "",
+    favoriteSubjects: [] as string[],
+    leastFavoriteSubjects: [] as string[],
     
     // Step 3: Personal Interests
     interests: [] as string[],
@@ -250,6 +250,12 @@ const Assessment = () => {
           ...parsedData,
           interests: Array.isArray(parsedData.interests) ? parsedData.interests : [],
           hobbies: Array.isArray(parsedData.hobbies) ? parsedData.hobbies : [],
+          favoriteSubjects: Array.isArray(parsedData.favoriteSubjects) 
+            ? parsedData.favoriteSubjects 
+            : (parsedData.favoriteSubject ? [parsedData.favoriteSubject] : []),
+          leastFavoriteSubjects: Array.isArray(parsedData.leastFavoriteSubjects) 
+            ? parsedData.leastFavoriteSubjects 
+            : (parsedData.leastFavoriteSubject ? [parsedData.leastFavoriteSubject] : []),
           aptitudeAnswers: processedAptitudeAnswers
         }));
       } catch (e) {
@@ -341,6 +347,41 @@ const Assessment = () => {
       }
       
       return { ...prev, hobbies };
+    });
+  };
+
+  // Handle checkbox changes for favorite/least favorite subjects
+  const handleSubjectChange = (type: "favorite" | "least", subject: string, checked: boolean) => {
+    setFormData(prev => {
+      if (type === "favorite") {
+        let favoriteSubjects = [...prev.favoriteSubjects];
+        
+        if (checked) {
+          // Add subject only if it's not already in the list and we're under the limit
+          if (!favoriteSubjects.includes(subject) && favoriteSubjects.length < 3) {
+            favoriteSubjects = [...favoriteSubjects, subject];
+          }
+        } else {
+          // Remove subject from the list
+          favoriteSubjects = favoriteSubjects.filter(s => s !== subject);
+        }
+        
+        return { ...prev, favoriteSubjects };
+      } else {
+        let leastFavoriteSubjects = [...prev.leastFavoriteSubjects];
+        
+        if (checked) {
+          // Add subject only if it's not already in the list and we're under the limit
+          if (!leastFavoriteSubjects.includes(subject) && leastFavoriteSubjects.length < 3) {
+            leastFavoriteSubjects = [...leastFavoriteSubjects, subject];
+          }
+        } else {
+          // Remove subject from the list
+          leastFavoriteSubjects = leastFavoriteSubjects.filter(s => s !== subject);
+        }
+        
+        return { ...prev, leastFavoriteSubjects };
+      }
     });
   };
 
@@ -440,8 +481,8 @@ const Assessment = () => {
         },
         academicProfile: {
           gwa: formData.gwa,
-          favoriteSubject: formData.favoriteSubject,
-          leastFavoriteSubject: formData.leastFavoriteSubject
+          favoriteSubjects: formData.favoriteSubjects,
+          leastFavoriteSubjects: formData.leastFavoriteSubjects
         },
         personalInterests: formData.interests,
         hobbies: formData.hobbies,
@@ -551,7 +592,7 @@ const Assessment = () => {
         const isAgeValid = !isNaN(age) && age >= 1 && age <= 99;
         return formData.fullName && isAgeValid && formData.gender && formData.school && formData.region;
       case 1: // Academic Profile
-        return formData.gwa && formData.favoriteSubject && formData.leastFavoriteSubject;
+        return formData.gwa && formData.favoriteSubjects.length > 0 && formData.favoriteSubjects.length <= 3 && formData.leastFavoriteSubjects.length > 0 && formData.leastFavoriteSubjects.length <= 3;
       case 2: // Personal Interests
         return formData.interests.length > 0;
       case 3: // Hobbies
@@ -717,97 +758,111 @@ const Assessment = () => {
             </div>
             
             <div className="space-y-4">
-              <Label>Favorite Subject *</Label>
+              <Label>Favorite Subjects * (Select up to 3)</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {SUBJECT_OPTIONS.map((subject) => (
-                  <div 
-                    key={`favorite-${subject}`} 
-                    className={`flex items-center space-x-2 p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
-                      formData.favoriteSubject === subject
-                        ? "border-primary bg-primary/10"
-                        : "border-input hover:border-primary/50"
-                    }`}
-                    onClick={() => {
-                      // Prevent selecting the same subject as least favorite
-                      if (formData.leastFavoriteSubject !== subject) {
-                        handleInputChange("favoriteSubject", subject);
-                      }
-                    }}
-                  >
-                    <RadioGroup 
-                      value={formData.favoriteSubject} 
-                      onValueChange={(value) => {
-                        // Prevent selecting the same subject as least favorite
-                        if (formData.leastFavoriteSubject !== value) {
-                          handleInputChange("favoriteSubject", value);
+                {SUBJECT_OPTIONS.map((subject) => {
+                  const isSelected = formData.favoriteSubjects.includes(subject);
+                  const isDisabled = formData.leastFavoriteSubjects.includes(subject) || 
+                                    (!isSelected && formData.favoriteSubjects.length >= 3);
+                  return (
+                    <div 
+                      key={`favorite-${subject}`} 
+                      className={`flex items-center space-x-3 p-4 rounded-lg border transition-all duration-200 ${
+                        isDisabled 
+                          ? "opacity-50 cursor-not-allowed bg-muted/50" 
+                          : "cursor-pointer"
+                      } ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : "border-input hover:border-primary/50"
+                      }`}
+                      onClick={() => {
+                        if (!isDisabled) {
+                          handleSubjectChange("favorite", subject, !isSelected);
                         }
                       }}
-                      className="flex items-center space-x-2 w-full"
                     >
-                      <RadioGroupItem 
-                        value={subject} 
-                        id={`favorite-${subject}`} 
-                        className="cursor-pointer"
+                      <Checkbox
+                        id={`favorite-${subject}`}
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          if (!isDisabled) {
+                            handleSubjectChange("favorite", subject, checked as boolean);
+                          }
+                        }}
+                        disabled={isDisabled}
                       />
                       <Label 
                         htmlFor={`favorite-${subject}`} 
-                        className="cursor-pointer flex-grow"
+                        className={`flex-grow ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
                       >
                         {subject}
                       </Label>
-                    </RadioGroup>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
+              {formData.favoriteSubjects.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {formData.favoriteSubjects.length}/3 favorite subjects
+                </p>
+              )}
             </div>
             
             <div className="space-y-4">
-              <Label>Least Favorite Subject *</Label>
+              <Label>Least Favorite Subjects * (Select up to 3)</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {SUBJECT_OPTIONS.map((subject) => (
-                  <div 
-                    key={`least-${subject}`} 
-                    className={`flex items-center space-x-2 p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
-                      formData.leastFavoriteSubject === subject
-                        ? "border-primary bg-primary/10"
-                        : "border-input hover:border-primary/50"
-                    }`}
-                    onClick={() => {
-                      // Prevent selecting the same subject as favorite
-                      if (formData.favoriteSubject !== subject) {
-                        handleInputChange("leastFavoriteSubject", subject);
-                      }
-                    }}
-                  >
-                    <RadioGroup 
-                      value={formData.leastFavoriteSubject} 
-                      onValueChange={(value) => {
-                        // Prevent selecting the same subject as favorite
-                        if (formData.favoriteSubject !== value) {
-                          handleInputChange("leastFavoriteSubject", value);
+                {SUBJECT_OPTIONS.map((subject) => {
+                  const isSelected = formData.leastFavoriteSubjects.includes(subject);
+                  const isDisabled = formData.favoriteSubjects.includes(subject) || 
+                                    (!isSelected && formData.leastFavoriteSubjects.length >= 3);
+                  return (
+                    <div 
+                      key={`least-${subject}`} 
+                      className={`flex items-center space-x-3 p-4 rounded-lg border transition-all duration-200 ${
+                        isDisabled 
+                          ? "opacity-50 cursor-not-allowed bg-muted/50" 
+                          : "cursor-pointer"
+                      } ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : "border-input hover:border-primary/50"
+                      }`}
+                      onClick={() => {
+                        if (!isDisabled) {
+                          handleSubjectChange("least", subject, !isSelected);
                         }
                       }}
-                      className="flex items-center space-x-2 w-full"
                     >
-                      <RadioGroupItem 
-                        value={subject} 
-                        id={`least-${subject}`} 
-                        className="cursor-pointer"
+                      <Checkbox
+                        id={`least-${subject}`}
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          if (!isDisabled) {
+                            handleSubjectChange("least", subject, checked as boolean);
+                          }
+                        }}
+                        disabled={isDisabled}
                       />
                       <Label 
                         htmlFor={`least-${subject}`} 
-                        className="cursor-pointer flex-grow"
+                        className={`flex-grow ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
                       >
                         {subject}
                       </Label>
-                    </RadioGroup>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
+              {formData.leastFavoriteSubjects.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {formData.leastFavoriteSubjects.length}/3 least favorite subjects
+                </p>
+              )}
             </div>
             
             {/* Visual indicator for mutual exclusivity */}
-            {(formData.favoriteSubject && formData.leastFavoriteSubject && formData.favoriteSubject === formData.leastFavoriteSubject) && (
+            {formData.favoriteSubjects.some(subj => formData.leastFavoriteSubjects.includes(subj)) && (
               <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
                 You cannot select the same subject as both your favorite and least favorite.
               </div>
@@ -1099,12 +1154,20 @@ const Assessment = () => {
                   <p className="text-foreground">{formData.gwa || "Not provided"}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Favorite Subject</Label>
-                  <p className="text-foreground">{formData.favoriteSubject || "Not provided"}</p>
+                  <Label className="text-sm font-medium">Favorite Subjects</Label>
+                  <p className="text-foreground">
+                    {formData.favoriteSubjects.length > 0 
+                      ? formData.favoriteSubjects.join(", ") 
+                      : "Not provided"}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Least Favorite Subject</Label>
-                  <p className="text-foreground">{formData.leastFavoriteSubject || "Not provided"}</p>
+                  <Label className="text-sm font-medium">Least Favorite Subjects</Label>
+                  <p className="text-foreground">
+                    {formData.leastFavoriteSubjects.length > 0 
+                      ? formData.leastFavoriteSubjects.join(", ") 
+                      : "Not provided"}
+                  </p>
                 </div>
               </CardContent>
             </Card>

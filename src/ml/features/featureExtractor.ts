@@ -28,8 +28,14 @@ export class FeatureExtractor {
     
     // Extract academic features with validation
     const gwa = this.validateAndParseGWA(assessment.academicProfile.gwa);
-    const favoriteSubjectScore = this.getSubjectScore(assessment.academicProfile.favoriteSubject || '');
-    const leastFavoriteSubjectScore = this.getSubjectScore(assessment.academicProfile.leastFavoriteSubject || '');
+    const favoriteSubjects = Array.isArray(assessment.academicProfile.favoriteSubjects) 
+      ? assessment.academicProfile.favoriteSubjects 
+      : (assessment.academicProfile.favoriteSubject ? [assessment.academicProfile.favoriteSubject] : []);
+    const leastFavoriteSubjects = Array.isArray(assessment.academicProfile.leastFavoriteSubjects) 
+      ? assessment.academicProfile.leastFavoriteSubjects 
+      : (assessment.academicProfile.leastFavoriteSubject ? [assessment.academicProfile.leastFavoriteSubject] : []);
+    const favoriteSubjectScore = this.getSubjectScores(favoriteSubjects);
+    const leastFavoriteSubjectScore = this.getSubjectScores(leastFavoriteSubjects);
     
     // Extract interest alignment scores
     const interests = Array.isArray(assessment.personalInterests) ? assessment.personalInterests : [];
@@ -134,7 +140,7 @@ export class FeatureExtractor {
   }
   
   /**
-   * Get subject score based on subject category
+   * Get subject score based on subject category (for single subject)
    * @param subject The subject name
    * @returns Score between 0 and 1
    */
@@ -149,6 +155,20 @@ export class FeatureExtractor {
       return 0.6;
     }
     return 0.5; // Neutral score for other subjects
+  }
+
+  /**
+   * Get aggregated subject scores based on multiple subjects
+   * @param subjects Array of subject names
+   * @returns Score between 0 and 1, calculated as average of all subject scores
+   */
+  private static getSubjectScores(subjects: string[]): number {
+    if (!subjects || subjects.length === 0) return 0.5; // Neutral score for empty subjects
+    
+    // Calculate average score across all subjects
+    const scores = subjects.map(subject => this.getSubjectScore(subject));
+    const sum = scores.reduce((acc, score) => acc + score, 0);
+    return sum / scores.length;
   }
   
   /**

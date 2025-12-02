@@ -100,8 +100,11 @@ const Dashboard = () => {
     
     const academicProfile = assessment.academic_profile as { 
       gwa: string; 
-      favoriteSubject: string; 
-      leastFavoriteSubject: string 
+      favoriteSubjects?: string[];
+      leastFavoriteSubjects?: string[];
+      // Legacy support for single subject fields
+      favoriteSubject?: string;
+      leastFavoriteSubject?: string;
     };
     
     const personalInterests = assessment.personal_interests as string[];
@@ -120,14 +123,22 @@ const Dashboard = () => {
       // Higher score for better GWA (100 is highest, 75 is lowest)
       const gwaScore = Math.max(0, Math.min(100, (gwa - 75) * 4)); // Scale to 0-100
       
-      // Subject preference scoring with weighted points
-      if (["Mathematics", "Science", "Computer Science", "Physics", "Chemistry"].includes(academicProfile.favoriteSubject)) {
-        scores.STEM += 25 + (gwaScore * 0.15);
-      } else if (["Business Math", "Economics", "Accounting", "Entrepreneurship"].includes(academicProfile.favoriteSubject)) {
-        scores.ABM += 25 + (gwaScore * 0.15);
-      } else if (["English", "Araling Panlipunan", "Literature", "History", "Philosophy"].includes(academicProfile.favoriteSubject)) {
-        scores.HUMSS += 25 + (gwaScore * 0.15);
-      }
+      // Handle both array and legacy single subject format
+      const favoriteSubjects = Array.isArray(academicProfile.favoriteSubjects) 
+        ? academicProfile.favoriteSubjects 
+        : (academicProfile.favoriteSubject ? [academicProfile.favoriteSubject] : []);
+      
+      // Distribute points across favorite subjects (25 points total, divided by number of subjects)
+      const basePointsPerSubject = favoriteSubjects.length > 0 ? 25 / favoriteSubjects.length : 0;
+      favoriteSubjects.forEach(subject => {
+        if (["Mathematics", "Science", "Computer Science", "Physics", "Chemistry"].includes(subject)) {
+          scores.STEM += basePointsPerSubject + (gwaScore * 0.15 / favoriteSubjects.length);
+        } else if (["Business Math", "Economics", "Accounting", "Entrepreneurship"].includes(subject)) {
+          scores.ABM += basePointsPerSubject + (gwaScore * 0.15 / favoriteSubjects.length);
+        } else if (["English", "Araling Panlipunan", "Literature", "History", "Philosophy"].includes(subject)) {
+          scores.HUMSS += basePointsPerSubject + (gwaScore * 0.15 / favoriteSubjects.length);
+        }
+      });
     }
 
     // 2. Interest Alignment Scoring (25% weight)
@@ -244,10 +255,19 @@ const Dashboard = () => {
       Arts: ["Arts", "Literature", "Communication", "English"]
     } as Record<string, string[]>;
     
-    Object.entries(dislikePenalties).forEach(([strand, dislikedSubjects]) => {
-      if (dislikedSubjects.includes(academicProfile.leastFavoriteSubject)) {
-        scores[strand] -= 10; // Penalty for disliking relevant subjects
-      }
+    // Handle both array and legacy single subject format
+    const leastFavoriteSubjects = Array.isArray(academicProfile.leastFavoriteSubjects) 
+      ? academicProfile.leastFavoriteSubjects 
+      : (academicProfile.leastFavoriteSubject ? [academicProfile.leastFavoriteSubject] : []);
+    
+    // Distribute penalty across least favorite subjects (10 points total, divided by number of subjects)
+    const penaltyPerSubject = leastFavoriteSubjects.length > 0 ? 10 / leastFavoriteSubjects.length : 0;
+    Object.entries(dislikePenalties).forEach(([strand, dislikedSubjectsList]) => {
+      leastFavoriteSubjects.forEach(subject => {
+        if (dislikedSubjectsList.includes(subject)) {
+          scores[strand] -= penaltyPerSubject; // Penalty for disliking relevant subjects
+        }
+      });
     });
 
     // 5. Bonus for balanced interests (5% weight)
