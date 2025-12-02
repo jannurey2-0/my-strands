@@ -20,9 +20,12 @@ export default function AuthCallback() {
       // This is a password reset flow, redirect to reset password page
       setIsPasswordReset(true);
       // Preserve the hash/query params for the reset password page
+      // Hash takes priority as Supabase uses hash for auth tokens
       const hash = window.location.hash;
       const query = window.location.search;
-      navigate(`/auth/reset-password${hash || query}`, { replace: true });
+      const redirectPath = hash ? `/auth/reset-password${hash}` : `/auth/reset-password${query}`;
+      console.log('Redirecting to reset password page with:', { hash, query, redirectPath });
+      navigate(redirectPath, { replace: true });
       return;
     }
 

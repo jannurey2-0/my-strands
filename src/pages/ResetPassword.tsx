@@ -28,11 +28,13 @@ export default function ResetPassword() {
   // Check if we have a valid session (user clicked the reset link)
   // Supabase automatically processes the hash and creates a session
   useEffect(() => {
+    let mounted = true;
+    let retryCount = 0;
+    const maxRetries = 5;
+    const retryDelay = 500;
+
     const checkSession = async () => {
       try {
-        // Wait a bit for Supabase to process the hash
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
         // Check if there's a hash in the URL (Supabase password reset tokens come in the hash)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
@@ -42,13 +44,49 @@ export default function ResetPassword() {
         const queryType = searchParams.get('type');
 
         // Check if we have a session (Supabase should have processed the hash by now)
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-        if ((accessToken && type === 'recovery') || queryType === 'recovery' || session) {
-          // Valid password reset link - Supabase has processed it
-          setIsValidating(false);
-        } else {
-          // No valid reset token, redirect to login
+        // If we have hash params with recovery type, Supabase is processing it
+        const hasRecoveryHash = (accessToken && type === 'recovery') || queryType === 'recovery';
+
+        console.log('Session check:', { 
+          hasSession: !!session, 
+          hasRecoveryHash, 
+          accessToken: !!accessToken, 
+          type, 
+          queryType,
+          retryCount 
+        });
+
+        // If we have a session, we're good to go
+        if (session) {
+          if (mounted) {
+            console.log('Session found, validation successful');
+            setIsValidating(false);
+          }
+          return;
+        }
+
+        // If we have a recovery hash but no session yet, wait and retry
+        if (hasRecoveryHash && retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Waiting for Supabase to process hash... (attempt ${retryCount}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          if (mounted) {
+            checkSession();
+          }
+          return;
+        }
+
+        // No valid reset token after retries, redirect to login
+        if (mounted) {
+          console.error('Session validation failed:', { 
+            sessionError: sessionError?.message, 
+            hasRecoveryHash, 
+            retryCount,
+            hash: window.location.hash,
+            search: window.location.search
+          });
           toast({
             title: "Invalid reset link",
             description: "This password reset link is invalid or has expired. Please request a new one.",
@@ -58,16 +96,32 @@ export default function ResetPassword() {
         }
       } catch (err) {
         console.error('Error validating reset link:', err);
-        toast({
-          title: "Error",
-          description: "An error occurred while validating the reset link.",
-          variant: "destructive"
-        });
-        navigate('/student/login');
+        if (mounted) {
+          toast({
+            title: "Error",
+            description: "An error occurred while validating the reset link.",
+            variant: "destructive"
+          });
+          navigate('/student/login');
+        }
       }
     };
 
+    // Also listen for auth state changes in case Supabase processes the hash asynchronously
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        if (mounted) {
+          setIsValidating(false);
+        }
+      }
+    });
+
     checkSession();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate, toast, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
