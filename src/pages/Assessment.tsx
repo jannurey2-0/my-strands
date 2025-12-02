@@ -452,21 +452,6 @@ const Assessment = () => {
       const result = await assessmentService.submitAssessment(assessmentData, profile.id);
       
       if (result.success) {
-        // Train ML model with new assessment data if ML is enabled
-        try {
-          // Check if ML model is enabled and train it with the new data
-          await assessmentService.trainMlModelWithNewData({
-            basicInfo: assessmentData.basicInfo,
-            academicProfile: assessmentData.academicProfile,
-            personalInterests: assessmentData.personalInterests,
-            hobbies: assessmentData.hobbies,
-            aptitudeAnswers: assessmentData.aptitudeAnswers
-          });
-        } catch (mlError) {
-          console.warn("Failed to train ML model with new data:", mlError);
-          // Don't fail the submission if ML training fails
-        }
-        
         clearTimeout(timeoutId);
         setIsSubmitting(false);
         

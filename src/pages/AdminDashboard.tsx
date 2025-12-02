@@ -24,7 +24,6 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, User } from "lucide-react";
 import { 
@@ -81,7 +80,6 @@ function StudentsManagement() {
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sortBy, setSortBy] = useState<'created_at' | 'full_name'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -107,12 +105,6 @@ function StudentsManagement() {
         query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
       }
 
-      // Apply status filter (if is_active field exists)
-      if (statusFilter !== 'all') {
-        // This would require the is_active field to exist in the database
-        // query = query.eq('is_active', statusFilter === 'active');
-      }
-
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -130,28 +122,13 @@ function StudentsManagement() {
   useEffect(() => {
     fetchStudents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, statusFilter, sortBy, sortOrder]);
+  }, [page, search, sortBy, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const openDetails = (student: StudentProfile) => {
     setSelected(student);
     setDetailsOpen(true);
-  };
-
-  const toggleActive = async (student: StudentProfile, next: boolean) => {
-    try {
-      // Note: is_active field does not exist in profiles table
-      // This feature would require a database migration to add the is_active column
-      useToast().toast({ 
-        title: 'Feature not available', 
-        description: 'Account activation requires adding an is_active column to the profiles table.',
-        variant: 'destructive' 
-      });
-    } catch (err) {
-      console.error('Error updating active status:', err);
-      useToast().toast({ title: 'Update failed', description: 'Activation toggle requires an `is_active` column on profiles.', variant: 'destructive' });
-    }
   };
 
   const handleSort = (column: 'created_at' | 'full_name') => {
@@ -172,23 +149,12 @@ function StudentsManagement() {
           <p className="text-muted-foreground">Manage student profiles and account actions</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Search by name or email..."
-              value={search}
-              onChange={(e) => { setPage(1); setSearch(e.target.value); }}
-              className="w-64"
-            />
-            <select 
-              value={statusFilter}
-              onChange={(e) => { setPage(1); setStatusFilter(e.target.value as 'all' | 'active' | 'inactive'); }}
-              className="border rounded-md px-3 py-2 bg-background text-foreground"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
+          <Input
+            placeholder="Search by name or email..."
+            value={search}
+            onChange={(e) => { setPage(1); setSearch(e.target.value); }}
+            className="w-64"
+          />
         </div>
       </div>
 
@@ -212,12 +178,6 @@ function StudentsManagement() {
                   </TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      Status
-                      <span className="text-xs text-muted-foreground" title="Activation feature requires database migration">(?)</span>
-                    </div>
-                  </TableHead>
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('created_at')}>
                     <div className="flex items-center gap-1">
                       Created
@@ -232,7 +192,7 @@ function StudentsManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                       <div className="flex items-center justify-center gap-2">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
                         Loading students...
@@ -241,7 +201,7 @@ function StudentsManagement() {
                   </TableRow>
                 ) : students.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Users className="h-12 w-12 text-muted-foreground/50" />
                         <h3 className="font-medium text-foreground">No students found</h3>
@@ -268,19 +228,6 @@ function StudentsManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge 
-                            variant={(s as any)?.is_active === false ? 'destructive' : 'secondary'}
-                            className="w-fit"
-                          >
-                            {(s as any)?.is_active === false ? 'Inactive' : 'Active'}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {(s as any)?.is_active === undefined ? 'Status feature not enabled' : ''}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
                         <div className="flex flex-col">
                           <span>{new Date(s.created_at).toLocaleDateString()}</span>
                           <span className="text-xs text-muted-foreground">
@@ -289,23 +236,15 @@ function StudentsManagement() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="icon" 
-                            onClick={() => openDetails(s)} 
-                            title="View details"
-                            className="hover:bg-primary hover:text-primary-foreground transition-colors"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <div className="flex items-center gap-2" title="Activate / Deactivate account">
-                            <Switch
-                              checked={(s as any)?.is_active !== false}
-                              onCheckedChange={(checked) => toggleActive(s, checked)}
-                            />
-                          </div>
-                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          onClick={() => openDetails(s)} 
+                          title="View details"
+                          className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -378,12 +317,6 @@ function StudentsManagement() {
                 <span className="text-muted-foreground">Role</span>
                 <Badge variant={selected?.role === 'admin' ? 'default' : 'secondary'}>
                   {selected?.role}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b">
-                <span className="text-muted-foreground">Status</span>
-                <Badge variant={(selected as any)?.is_active === false ? 'destructive' : 'secondary'}>
-                  {(selected as any)?.is_active === false ? 'Inactive' : 'Active'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between py-2 border-b">

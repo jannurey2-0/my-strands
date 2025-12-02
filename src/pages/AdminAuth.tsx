@@ -11,7 +11,11 @@ import { ArrowLeft, Shield } from 'lucide-react';
 export default function AdminAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const { signIn, signOut, profile, user, loading } = useAuth();
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState('');
+  const { signIn, signOut, resetPassword, profile, user, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -64,6 +68,28 @@ export default function AdminAuth() {
       console.log('Admin sign in successful, waiting for profile to load...');
     }
     setIsLoading(false);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setForgotPasswordError('');
+
+    if (!forgotPasswordEmail || !forgotPasswordEmail.trim()) {
+      setForgotPasswordError('Please enter your email address');
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+    const { error } = await resetPassword(forgotPasswordEmail);
+    
+    if (!error) {
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
+    } else {
+      setForgotPasswordError(error.message || 'Unable to send password reset email. Please try again.');
+    }
+    
+    setForgotPasswordLoading(false);
   };
 
   // Show loading state while checking auth status
@@ -168,10 +194,70 @@ export default function AdminAuth() {
                   required 
                 />
               </div>
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              {forgotPasswordError && (
+                <div className="text-sm text-destructive text-center">
+                  {forgotPasswordError}
+                </div>
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Signing in...' : 'Sign In as Admin'}
               </Button>
             </form>
+            
+            {showForgotPassword && (
+              <div className="mt-4 p-4 border rounded-lg bg-muted/50">
+                <h3 className="text-sm font-semibold mb-2">Reset Password</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Enter your email address and we'll send you a link to reset your password.
+                </p>
+                <form onSubmit={handleForgotPassword} className="space-y-3">
+                  <div className="space-y-2">
+                    <Input
+                      type="email"
+                      placeholder="admin@example.com"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => {
+                        setForgotPasswordEmail(e.target.value);
+                        setForgotPasswordError('');
+                      }}
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setForgotPasswordEmail('');
+                        setForgotPasswordError('');
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={forgotPasswordLoading}
+                      className="flex-1"
+                    >
+                      {forgotPasswordLoading ? 'Sending...' : 'Send Reset Link'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
             
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground">

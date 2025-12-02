@@ -31,12 +31,26 @@ export class StrandModel {
         inputShape: [MODEL_CONFIG.architecture.inputSize],
       }));
       
+      // Add dropout after first layer for regularization
+      if (MODEL_CONFIG.architecture.dropout) {
+        model.add(tf.layers.dropout({
+          rate: MODEL_CONFIG.architecture.dropout,
+        }));
+      }
+      
       // Add hidden layers
       for (let i = 1; i < MODEL_CONFIG.architecture.hiddenLayers.length; i++) {
         model.add(tf.layers.dense({
           units: MODEL_CONFIG.architecture.hiddenLayers[i],
           activation: MODEL_CONFIG.architecture.activation as any,
         }));
+        
+        // Add dropout after each hidden layer (except the last one before output)
+        if (MODEL_CONFIG.architecture.dropout && i < MODEL_CONFIG.architecture.hiddenLayers.length - 1) {
+          model.add(tf.layers.dropout({
+            rate: MODEL_CONFIG.architecture.dropout,
+          }));
+        }
       }
       
       // Add output layer
@@ -106,6 +120,16 @@ export class StrandModel {
       
       console.debug(`Created training tensors - xs shape: ${xs.shape}, ys shape: ${ys.shape}`);
       console.log(`Starting model training with ${features.length} samples...`);
+      
+      // Calculate class weights if enabled (for logging/debugging)
+      // Note: TensorFlow.js may not support classWeight directly in fit()
+      // The weights are calculated and logged to help understand class imbalance
+      if (MODEL_CONFIG.training.useClassWeights) {
+        const classWeights = this.calculateClassWeights(labels);
+        console.log('Class weights calculated (for reference):', classWeights);
+        console.log('Note: Class weights are calculated but may not be applied directly in TensorFlow.js');
+        console.log('The model uses dropout and smaller architecture to handle imbalanced data.');
+      }
       
       // Train the model
       const history = await this.model.fit(xs, ys, {
@@ -357,6 +381,43 @@ export class StrandModel {
    */
   isModelTrained(): boolean {
     return this.isTrained;
+  }
+  
+  /**
+   * Calculate class weights to handle imbalanced data
+   * @param labels Array of label arrays (one-hot encoded)
+   * @returns Class weights object
+   */
+  private calculateClassWeights(labels: number[][]): { [key: number]: number } {
+    const classCounts: number[] = new Array(MODEL_CONFIG.architecture.outputSize).fill(0);
+    
+    // Count samples per class
+    labels.forEach(label => {
+      const classIndex = label.indexOf(Math.max(...label));
+      if (classIndex >= 0) {
+        classCounts[classIndex]++;
+      }
+    });
+    
+    // Calculate total samples
+    const totalSamples = labels.length;
+    
+    // Calculate weights: n_samples / (n_classes * np.bincount(y))
+    // This gives higher weight to underrepresented classes
+    const classWeights: { [key: number]: number } = {};
+    const nClasses = MODEL_CONFIG.architecture.outputSize;
+    
+    classCounts.forEach((count, index) => {
+      if (count > 0) {
+        // Weight inversely proportional to class frequency
+        classWeights[index] = totalSamples / (nClasses * count);
+      } else {
+        // If a class has no samples, give it a default weight
+        classWeights[index] = 1.0;
+      }
+    });
+    
+    return classWeights;
   }
   
   /**

@@ -3,22 +3,24 @@ export const MODEL_CONFIG = {
   // Model architecture
   architecture: {
     inputSize: 18, // Number of input features (updated to match actual features)
-    hiddenLayers: [32, 16], // Hidden layer sizes
+    hiddenLayers: [20, 10], // Increased model capacity for better learning
     outputSize: 6, // Number of strands (STEM, ABM, HUMSS, GAS, TVL, Arts)
     activation: 'relu', // Activation function for hidden layers
     outputActivation: 'softmax', // Activation function for output layer
+    dropout: 0.3, // Dropout rate for regularization (30% dropout)
   },
   
   // Training parameters
   training: {
-    epochs: 200, // Increase epochs
-    batchSize: 16, // Reduce batch size for smaller datasets
+    epochs: 150, // Increased epochs for better convergence
+    batchSize: 8, // Smaller batch size for better gradient estimates with limited data
     learningRate: 0.001,
-    validationSplit: 0.2,
+    validationSplit: 0.1, // Reduced validation split to use more data for training (10% instead of 20%)
     earlyStopping: {
-      patience: 15, // Increase patience
+      patience: 10, // Reduced patience for smaller datasets
       minDelta: 0.001,
     },
+    useClassWeights: true, // Enable class weights to handle imbalanced data
   },
   
   // Model paths

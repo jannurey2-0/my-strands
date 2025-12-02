@@ -1,25 +1,47 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
 
   useEffect(() => {
-    // Simple timeout to simulate processing
+    // Check if this is a password reset callback
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const type = hashParams.get('type');
+    const queryType = searchParams.get('type');
+
+    if (type === 'recovery' || queryType === 'recovery') {
+      // This is a password reset flow, redirect to reset password page
+      setIsPasswordReset(true);
+      // Preserve the hash/query params for the reset password page
+      const hash = window.location.hash;
+      const query = window.location.search;
+      navigate(`/auth/reset-password${hash || query}`, { replace: true });
+      return;
+    }
+
+    // Otherwise, it's an email confirmation
     const timer = setTimeout(() => {
       setLoading(false);
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [navigate, searchParams]);
 
   const handleProceedToLogin = () => {
     navigate("/student/login");
   };
+
+  // If it's a password reset, don't render anything (redirect is happening)
+  if (isPasswordReset) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">

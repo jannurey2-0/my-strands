@@ -25,6 +25,7 @@ import AuthDebug from "./pages/AuthDebug";
 import Profile from "./pages/Profile";
 import AdminProfile from "./pages/AdminProfile";
 import AuthCallback from "./pages/AuthCallback";
+import ResetPassword from "./pages/ResetPassword";
 import { ScrollToTopOnNavigate } from "./components/ScrollToTopOnNavigate";
 
 // Debug component to log current route
@@ -63,6 +64,11 @@ const AppContent = () => (
         <Route path="/auth/callback" element={
           <ErrorBoundary>
             <AuthCallback />
+          </ErrorBoundary>
+        } />
+        <Route path="/auth/reset-password" element={
+          <ErrorBoundary>
+            <ResetPassword />
           </ErrorBoundary>
         } />
         <Route

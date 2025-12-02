@@ -42,6 +42,8 @@ interface AuthContextType extends AuthState {
   ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshAuthState: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
 }
 
 // ---- Email Validation ----
@@ -518,6 +520,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    // Validate email before proceeding
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      toast({
+        title: "Invalid Email",
+        description: emailValidation.message,
+        variant: "destructive"
+      });
+      return { error: new Error(emailValidation.message) };
+    }
+
+    // Use the correct redirect URL for password reset
+    const redirectUrl = `${window.location.origin}/auth/reset-password`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl
+    });
+
+    if (error) {
+      console.error("Password reset error:", error);
+      toast({
+        title: "Password reset failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Check your email",
+        description: "We've sent you a password reset link. Please check your inbox."
+      });
+    }
+
+    return { error };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    // Validate password before proceeding
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      toast({
+        title: "Invalid Password",
+        description: passwordValidation.message,
+        variant: "destructive"
+      });
+      return { error: new Error(passwordValidation.message) };
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) {
+      console.error("Password update error:", error);
+      toast({
+        title: "Password update failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Password updated",
+        description: "Your password has been successfully changed."
+      });
+    }
+
+    return { error };
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -525,7 +596,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp,
         signIn,
         signOut,
-        refreshAuthState
+        refreshAuthState,
+        resetPassword,
+        updatePassword
       }}
     >
       {children}
