@@ -20,75 +20,104 @@ export default function ResetPassword() {
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [isValidating, setIsValidating] = useState(true);
   
-  const { updatePassword, user } = useAuth();
+  const { updatePassword } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Check if we have a valid session (user clicked the reset link)
-  // Supabase automatically processes the hash and creates a session
   useEffect(() => {
     let mounted = true;
-    let retryCount = 0;
-    const maxRetries = 5;
-    const retryDelay = 500;
+    let validationTimeout: NodeJS.Timeout;
 
-    const checkSession = async () => {
+    const validateResetLink = async () => {
       try {
-        // Check if there's a hash in the URL (Supabase password reset tokens come in the hash)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        // Check for code or hash in URL (PKCE uses code, older flows use hash)
+        const code = searchParams.get('code');
+        const hash = window.location.hash;
+        const hashParams = new URLSearchParams(hash.substring(1));
         const accessToken = hashParams.get('access_token');
-        const type = hashParams.get('type');
+        const type = hashParams.get('type') || searchParams.get('type');
 
-        // Also check query params (some flows use query params)
-        const queryType = searchParams.get('type');
-
-        // Check if we have a session (Supabase should have processed the hash by now)
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        // If we have hash params with recovery type, Supabase is processing it
-        const hasRecoveryHash = (accessToken && type === 'recovery') || queryType === 'recovery';
-
-        console.log('Session check:', { 
-          hasSession: !!session, 
-          hasRecoveryHash, 
-          accessToken: !!accessToken, 
-          type, 
-          queryType,
-          retryCount 
-        });
-
-        // If we have a session, we're good to go
-        if (session) {
+        // If no code/hash/token, invalid link
+        if (!code && !accessToken && !hash) {
           if (mounted) {
-            console.log('Session found, validation successful');
+            toast({
+              title: "Invalid reset link",
+              description: "This password reset link is invalid. Please request a new one.",
+              variant: "destructive"
+            });
+            navigate('/student/login');
+          }
+          return;
+        }
+
+        // FIRST: Check if session already exists (Supabase's detectSessionInUrl may have already processed it)
+        let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log('✅ Session already exists, validation successful');
+          if (mounted) {
             setIsValidating(false);
           }
           return;
         }
 
-        // If we have a recovery hash but no session yet, wait and retry
-        if (hasRecoveryHash && retryCount < maxRetries) {
-          retryCount++;
-          console.log(`Waiting for Supabase to process hash... (attempt ${retryCount}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        // If we have a code, wait for Supabase's detectSessionInUrl to process it automatically
+        // With detectSessionInUrl: true, Supabase will automatically exchange the code
+        // We just need to wait for it to complete
+        if (code) {
+          console.log('Found code parameter, waiting for Supabase auto-detection...');
+          
+          // Wait for Supabase to process the code (detectSessionInUrl handles this)
+          // The onAuthStateChange listener will catch the SIGNED_IN event
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Check session again
+          const { data: { session: newSession } } = await supabase.auth.getSession();
+          if (newSession) {
+            console.log('✅ Session found after waiting for auto-detection');
+            if (mounted) {
+              setIsValidating(false);
+            }
+            return;
+          }
+        }
+
+        // For hash-based flow (older Supabase versions)
+        if (accessToken || hash) {
+          console.log('Found hash/access token, waiting for Supabase to process...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const { data: { session: hashSession } } = await supabase.auth.getSession();
+          
+          if (hashSession) {
+            if (mounted) {
+              setIsValidating(false);
+            }
+            return;
+          }
+        }
+
+        // If still no session after waiting, the link might be invalid
+        // But give it one more moment since auth state changes are async
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { data: { session: finalSession } } = await supabase.auth.getSession();
+        
+        if (finalSession) {
+          console.log('✅ Session found on final check');
           if (mounted) {
-            checkSession();
+            setIsValidating(false);
           }
           return;
         }
 
-        // No valid reset token after retries, redirect to login
+        // Still no session - link might be invalid or expired
         if (mounted) {
-          console.error('Session validation failed:', { 
-            sessionError: sessionError?.message, 
-            hasRecoveryHash, 
-            retryCount,
-            hash: window.location.hash,
-            search: window.location.search
+          console.error('❌ No session found after waiting:', { 
+            code: !!code, 
+            accessToken: !!accessToken 
           });
           toast({
-            title: "Invalid reset link",
+            title: "Invalid or expired link",
             description: "This password reset link is invalid or has expired. Please request a new one.",
             variant: "destructive"
           });
@@ -107,19 +136,20 @@ export default function ResetPassword() {
       }
     };
 
-    // Also listen for auth state changes in case Supabase processes the hash asynchronously
+    // Listen for auth state changes - Supabase will fire PASSWORD_RECOVERY or SIGNED_IN when code is processed
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-        if (mounted) {
-          setIsValidating(false);
-        }
+      if (mounted && (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session))) {
+        console.log('Password recovery session established:', event);
+        setIsValidating(false);
       }
     });
 
-    checkSession();
+    // Start validation
+    validateResetLink();
 
     return () => {
       mounted = false;
+      if (validationTimeout) clearTimeout(validationTimeout);
       subscription.unsubscribe();
     };
   }, [navigate, toast, searchParams]);
@@ -158,7 +188,6 @@ export default function ResetPassword() {
           title: "Password reset successful",
           description: "Your password has been updated. You can now sign in with your new password.",
         });
-        // Redirect to appropriate login page
         navigate('/student/login');
       }
     } catch (err) {
@@ -288,4 +317,3 @@ export default function ResetPassword() {
     </div>
   );
 }
-

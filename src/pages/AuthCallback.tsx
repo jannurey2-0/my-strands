@@ -16,20 +16,20 @@ export default function AuthCallback() {
     const type = hashParams.get('type');
     const queryType = searchParams.get('type');
 
+    // Password reset is identified by type=recovery
     if (type === 'recovery' || queryType === 'recovery') {
       // This is a password reset flow, redirect to reset password page
       setIsPasswordReset(true);
       // Preserve the hash/query params for the reset password page
-      // Hash takes priority as Supabase uses hash for auth tokens
       const hash = window.location.hash;
       const query = window.location.search;
       const redirectPath = hash ? `/auth/reset-password${hash}` : `/auth/reset-password${query}`;
-      console.log('Redirecting to reset password page with:', { hash, query, redirectPath });
       navigate(redirectPath, { replace: true });
       return;
     }
 
     // Otherwise, it's an email confirmation
+    // Supabase will automatically process the code with detectSessionInUrl: true
     const timer = setTimeout(() => {
       setLoading(false);
     }, 1500);

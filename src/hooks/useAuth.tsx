@@ -406,8 +406,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Ensure we're using the correct redirect URL for auth callback
-    // Use environment variable for base URL if available (for production), otherwise use current origin
-    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    // Use environment variable for base URL in production, but use current origin in development
+    const baseUrl = import.meta.env.DEV 
+      ? window.location.origin  // In development, use current origin (localhost)
+      : (import.meta.env.VITE_APP_URL || window.location.origin); // In production, use VITE_APP_URL
     const redirectUrl = `${baseUrl}/auth/callback`;
     console.log("Using redirect URL for signup:", redirectUrl);
 
@@ -534,8 +536,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: new Error(emailValidation.message) };
     }
 
-    // Use environment variable for base URL if available (for production), otherwise use current origin
-    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    // Use environment variable for base URL in production, but use current origin in development
+    // This ensures local testing works with localhost URLs
+    const baseUrl = import.meta.env.DEV 
+      ? window.location.origin  // In development, use current origin (localhost)
+      : (import.meta.env.VITE_APP_URL || window.location.origin); // In production, use VITE_APP_URL
     const redirectUrl = `${baseUrl}/auth/reset-password`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
