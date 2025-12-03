@@ -81,7 +81,7 @@ function StudentsManagement() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'created_at' | 'full_name'>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [loading, setLoading] = useState(true);

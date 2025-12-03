@@ -25,7 +25,10 @@
     "check-ml-settings": "npx tsx src/ml/scripts/checkMlSettings.ts",
     "compare-models": "npx tsx src/ml/scripts/compareModels.ts",
     "generate-assessments": "npx tsx scripts/generate-assessment-responses.ts",
-    "diagnose-bias": "npx tsx scripts/diagnose-humss-bias.ts"
+    "diagnose-bias": "npx tsx scripts/diagnose-humss-bias.ts",
+    "check-db-stats": "npx tsx scripts/check-database-stats.ts",
+    "generate-dummy-users": "npx tsx scripts/generate-dummy-users.ts",
+    "delete-dummy-users": "npx tsx scripts/delete-dummy-users.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
