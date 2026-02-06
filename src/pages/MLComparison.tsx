@@ -58,6 +58,8 @@ export default function MLComparison() {
     'random-forest': false
   });
   const [completedModels, setCompletedModels] = useState<Set<string>>(new Set());
+  const [trainingCompleteMessage, setTrainingCompleteMessage] = useState(false);
+  const [allModelsTraining, setAllModelsTraining] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fileUpload, setFileUpload] = useState<File | null>(null);
 
@@ -194,7 +196,7 @@ export default function MLComparison() {
     }
   };
 
-  // Train a specific model
+  // Train a specific model (original function - used for individual training)
   const trainModel = async (modelType: ModelType) => {
     if (!selectedDataset || !processedDataset) {
       toast({
@@ -277,11 +279,118 @@ export default function MLComparison() {
     }
   };
 
+  // Train model without updating UI state (for batch training)
+  const trainModelWithoutUIUpdate = async (modelType: ModelType) => {
+    if (!selectedDataset || !processedDataset) {
+      return;
+    }
+
+    try {
+      toast({
+        title: "Training Started",
+        description: `Training ${ModelFactory.getModelTypeNames()[modelType]} model with ${processedDataset.sampleCount} samples...`
+      });
+
+      // Split dataset for training and validation
+      const splitData = DatasetService.splitDataset(processedDataset, 0.2);
+      
+      const model = modelManager.getModel(modelType);
+      if (model) {
+        // Initialize model if needed
+        if (!model.isModelReady()) {
+          await model.initialize();
+        }
+        
+        // Train the model
+        const startTime = Date.now();
+        await model.train(splitData.training.features, splitData.training.labels);
+        const trainingTime = Date.now() - startTime;
+        
+        // Mark model as completed
+        setCompletedModels(prev => new Set(prev).add(modelType));
+        
+        // Calculate metrics using validation set
+        const metrics = await calculateModelMetrics(model, splitData.validation);
+        
+        const result: ModelComparisonResult = {
+          modelType,
+          modelName: ModelFactory.getModelTypeNames()[modelType],
+          metrics,
+          trainingTime,
+          isTrained: true,
+          isActive: false
+        };
+
+        setComparisonResults(prev => {
+          const existingIndex = prev.findIndex(r => r.modelType === modelType);
+          if (existingIndex >= 0) {
+            const updated = [...prev];
+            updated[existingIndex] = result;
+            return updated;
+          }
+          return [...prev, result];
+        });
+        
+        toast({
+          title: "Training Complete",
+          description: `${ModelFactory.getModelTypeNames()[modelType]} model trained successfully in ${(trainingTime/1000).toFixed(1)}s`
+        });
+      }
+    } catch (error) {
+      logger.error(`Error training ${modelType} model:`, error);
+      toast({
+        title: "Training Error",
+        description: `Failed to train ${ModelFactory.getModelTypeNames()[modelType]} model: ${(error as Error).message}`,
+        variant: "destructive"
+      });
+      // Still mark as completed even on error to remove training indicator
+      setCompletedModels(prev => new Set(prev).add(modelType));
+    }
+  };
+
   // Train all models
   const trainAllModels = async () => {
+    setAllModelsTraining(true);
+    setTrainingCompleteMessage(false);
+    
     const modelTypes = ModelFactory.getAvailableModelTypes();
-    for (const modelType of modelTypes) {
-      await trainModel(modelType);
+    
+    // Set all models to training state immediately
+    const initialTrainingState = {} as Record<ModelType, boolean>;
+    modelTypes.forEach(type => {
+      initialTrainingState[type] = true;
+    });
+    setTrainingInProgress(initialTrainingState);
+    
+    // Clear completed models
+    setCompletedModels(new Set());
+    
+    try {
+      // Train all models concurrently
+      const trainingPromises = modelTypes.map(async (modelType) => {
+        await trainModelWithoutUIUpdate(modelType);
+      });
+      
+      await Promise.all(trainingPromises);
+      
+      // Show "Training Complete" message
+      setTrainingCompleteMessage(true);
+      
+      // Hide the message after 3 seconds
+      setTimeout(() => {
+        setTrainingCompleteMessage(false);
+      }, 3000);
+      
+    } catch (error) {
+      logger.error('Error in trainAllModels:', error);
+    } finally {
+      setAllModelsTraining(false);
+      // Reset training state
+      const resetTrainingState = {} as Record<ModelType, boolean>;
+      modelTypes.forEach(type => {
+        resetTrainingState[type] = false;
+      });
+      setTrainingInProgress(resetTrainingState);
     }
   };
 
@@ -508,11 +617,25 @@ export default function MLComparison() {
             ))}
             <Button
               onClick={trainAllModels}
-              disabled={!selectedDataset || Object.values(trainingInProgress).some(Boolean)}
-              className="flex items-center gap-2"
+              disabled={!selectedDataset || allModelsTraining}
+              className="flex items-center gap-2 relative"
             >
-              <Play className="h-4 w-4" />
-              Train All Models
+              {allModelsTraining ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Training All Models...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Train All Models
+                </>
+              )}
+              {trainingCompleteMessage && (
+                <span className="absolute -bottom-6 left-0 right-0 text-center text-sm text-green-600 font-medium">
+                  Training Complete ✓
+                </span>
+              )}
             </Button>
           </div>
         </CardContent>
