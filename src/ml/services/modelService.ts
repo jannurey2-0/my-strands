@@ -285,7 +285,7 @@ export class ModelService {
       }
       
       // Make prediction
-      let prediction = await this.model.predict(features);
+      let prediction = await this.model.predictAssessment(features);
       
       // Apply debiasing if HUMSS bias is detected
       prediction = this.debiasPredictions(prediction);

@@ -25,6 +25,7 @@ import { mlAssessmentService } from '@/ml/services/mlAssessmentService';
 import { IAssessment, ITrainingData } from '@/ml/interfaces/IAssessment';
 import { MODEL_CONFIG } from '@/ml/config/modelConfig';
 import logger from '@/lib/logger';
+import { assessmentService } from '@/integrations/supabase/assessmentService';
 
 interface ModelStatus {
   isInitialized: boolean;
@@ -506,8 +507,150 @@ export const MLModelManagement = () => {
         variant: "destructive"
       });
     }
+  }
+  
+  // Export assessment records as CSV
+  const exportAssessmentRecordsAsCSV = async () => {
+    try {
+      toast({
+        title: "Exporting Data",
+        description: "Fetching assessment records for export..."
+      });
+        
+      // Get all assessment records
+      const assessments = await assessmentService.getAllAssessments();
+        
+      if (!assessments || assessments.length === 0) {
+        toast({
+          title: "No Data Found",
+          description: "There are no assessment records to export.",
+          variant: "destructive"
+        });
+        return;
+      }
+        
+      // Get student profiles to match with assessment records
+      const studentIds = [...new Set(assessments.map(assessment => assessment.student_id))];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', studentIds);
+        
+      if (profilesError) {
+        throw new Error(`Failed to fetch student profiles: ${profilesError.message}`);
+      }
+        
+      // Prepare CSV data
+      const csvRows = [];
+        
+      // Add header row
+      csvRows.push([
+        'ID',
+        'Student Name',
+        'Email',
+        'Full Name',
+        'Age',
+        'Gender',
+        'School',
+        'Region',
+        'GWA',
+        'Favorite Subjects',
+        'Least Favorite Subjects',
+        'Personal Interests',
+        'Hobbies',
+        'Submitted At',
+        'Actual Strand',
+        'STEM %',
+        'ABM %',
+        'HUMSS %',
+        'GAS %',
+        'TVL %',
+        'Arts %'
+      ].join(','));
+        
+      // Process each assessment record
+      assessments.forEach(assessment => {
+        const studentProfile = profiles?.find(p => p.id === assessment.student_id);
+          
+        // Extract recommendations if they exist
+        const recommendations = assessment.recommendations as Record<string, number>;
+          
+        // Create CSV row
+        const row = [
+          assessment.id,
+          studentProfile?.full_name || '',
+          studentProfile?.email || '',
+          ((assessment.basic_info as any)?.fullName) || '',
+          ((assessment.basic_info as any)?.age) || '',
+          ((assessment.basic_info as any)?.gender) || '',
+          ((assessment.basic_info as any)?.school) || '',
+          ((assessment.basic_info as any)?.region) || '',
+          ((assessment.academic_profile as any)?.gwa) || '',
+          Array.isArray((assessment.academic_profile as any)?.favoriteSubjects) ? 
+            (assessment.academic_profile as any).favoriteSubjects.join('; ') : '',
+          Array.isArray((assessment.academic_profile as any)?.leastFavoriteSubjects) ? 
+            (assessment.academic_profile as any).leastFavoriteSubjects.join('; ') : '',
+          Array.isArray(assessment.personal_interests) ? 
+            assessment.personal_interests.join('; ') : '',
+          Array.isArray(assessment.hobbies) ? 
+            assessment.hobbies.join('; ') : '',
+          assessment.submitted_at || '',
+          assessment.actual_strand || ''
+        ];
+          
+        // Add recommendation percentages
+        if (recommendations) {
+          row.push(
+            recommendations.STEM?.toFixed(2) || '',
+            recommendations.ABM?.toFixed(2) || '',
+            recommendations.HUMSS?.toFixed(2) || '',
+            recommendations.GAS?.toFixed(2) || '',
+            recommendations.TVL?.toFixed(2) || '',
+            recommendations.Arts?.toFixed(2) || ''
+          );
+        } else {
+          row.push('', '', '', '', '', ''); // Empty cells if no recommendations
+        }
+          
+        // Escape quotes and add the row
+        const escapedRow = row.map(cell => {
+          if (typeof cell === 'string' && (cell.includes(',') || cell.includes('\n') || cell.includes('"'))) {
+            return `"${cell.replace(/"/g, '""')}"`;
+          }
+          return String(cell);
+        });
+          
+        csvRows.push(escapedRow.join(','));
+      });
+        
+      // Create CSV content
+      const csvContent = csvRows.join('\n');
+        
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `assessment_records_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+        
+      toast({
+        title: "Export Successful",
+        description: `Successfully exported ${assessments.length} assessment records to CSV.`
+      });
+    } catch (error) {
+      logger.error('Error exporting assessment records:', error);
+      toast({
+        title: "Export Failed",
+        description: `Failed to export assessment records: ${(error as Error).message}`,
+        variant: "destructive"
+      });
+    }
   };
-
+  
   if (loading) {
     return (
       <div className="space-y-6">
@@ -524,7 +667,7 @@ export const MLModelManagement = () => {
       </div>
     );
   }
-
+  
   return (
     <div className="space-y-6">
       <div>
@@ -532,6 +675,38 @@ export const MLModelManagement = () => {
         <p className="text-muted-foreground">Manage machine learning model for strand recommendations</p>
       </div>
 
+      {/* Export Assessment Records Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Export Assessment Records
+          </CardTitle>
+          <CardDescription>
+            Export all student assessment records to CSV format for analysis
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-lg bg-muted/30">
+            <div className="flex-1">
+              <h3 className="font-medium text-foreground">Export Data</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Download all assessment records as a CSV file. This includes student information, 
+                academic profiles, personal interests, and strand recommendations.
+              </p>
+            </div>
+            <Button 
+              onClick={exportAssessmentRecordsAsCSV}
+              className="flex items-center gap-2"
+              disabled={modelStatus.dataCount === 0}
+            >
+              <Database className="h-4 w-4" />
+              Export {modelStatus.dataCount} Records as CSV
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
       {/* Model Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="border-primary/20 border-2 hover:shadow-md transition-shadow duration-300">

@@ -40,6 +40,7 @@ import { SchoolsManagement } from "@/components/SchoolsManagement";
 import QuestionManagement from "@/components/QuestionManagement";
 import SystemSettings from "@/pages/SystemSettings";
 import { MLModelManagement } from "@/components/MLModelManagement";
+import MLComparison from "./MLComparison";
 
 interface Stats {
   totalStudents: number;
@@ -351,7 +352,7 @@ export default function AdminDashboard() {
   const [questions, setQuestions] = useState<AptitudeQuestion[]>([]);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model'>('dashboard');
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model' | 'ml-comparison'>('dashboard');
 
   // Fetch dashboard stats
   const fetchStats = async () => {
@@ -771,6 +772,13 @@ export default function AdminDashboard() {
             }
           >
             <MLModelManagement />
+          </ErrorBoundary>
+        );
+        
+      case 'ml-comparison':
+        return (
+          <ErrorBoundary>
+            <MLComparison />
           </ErrorBoundary>
         );
         

@@ -1,5 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
 import { IAssessmentFeatures, IStrandPrediction } from '../interfaces/IAssessment';
+import { BaseModel } from '../interfaces/BaseModel';
 import { MODEL_CONFIG } from '../config/modelConfig';
 import { FeatureExtractor } from '../features/featureExtractor';
 import { modelStorageService } from '../services/modelStorageService';
@@ -13,7 +14,7 @@ console.debug(`Running in ${isNode ? 'Node.js' : 'Browser'} environment`);
 /**
  * Strand recommendation model using TensorFlow.js
  */
-export class StrandModel {
+export class StrandModel implements BaseModel {
   private model: tf.LayersModel | null = null;
   private isTrained: boolean = false;
   private isTraining: boolean = false;
@@ -99,7 +100,7 @@ export class StrandModel {
       this.model.compile({
         optimizer: tf.train.adam(MODEL_CONFIG.training.learningRate),
         loss: 'categoricalCrossentropy',
-        metrics: ['accuracy'],
+        metrics: ['accuracy', 'precision', 'recall'],
       });
       console.log('Model compiled successfully');
     }
@@ -135,7 +136,23 @@ export class StrandModel {
     
     try {
       this.isTraining = true;
-      xs = tf.tensor2d(features);
+      
+      // Preprocess features with enhanced normalization
+      const processedFeatures = features.map(row => {
+        // Enhanced normalization with min-max scaling
+        const minVal = Math.min(...row);
+        const maxVal = Math.max(...row);
+        const range = maxVal - minVal;
+        
+        if (range === 0) {
+          // If all values are the same, return normalized array
+          return row.map(() => 0.5);
+        }
+        
+        return row.map(value => (value - minVal) / range);
+      });
+      
+      xs = tf.tensor2d(processedFeatures);
       ys = tf.tensor2d(labels);
       
       console.debug(`Created training tensors - xs shape: ${xs.shape}, ys shape: ${ys.shape}`);
@@ -195,11 +212,11 @@ export class StrandModel {
   }
   
   /**
-   * Make predictions for a single assessment
+   * Make predictions for a single assessment (legacy method)
    * @param assessmentFeatures The assessment features
    * @returns Prediction probabilities for each strand
    */
-  async predict(assessmentFeatures: IAssessmentFeatures): Promise<IStrandPrediction> {
+  async predictAssessment(assessmentFeatures: IAssessmentFeatures): Promise<IStrandPrediction> {
     // Validate model is properly initialized and trained
     this.validateModel();
     
@@ -380,7 +397,16 @@ export class StrandModel {
       console.log('Model topology type:', typeof modelTopology);
       console.log('Model topology keys:', modelTopology ? Object.keys(modelTopology).slice(0, 10) : 'null');
       console.log('Weight specs count:', weightSpecs.length);
-      console.log('Weight data size:', weightData.byteLength);
+      
+      // Handle weight data size calculation depending on whether it's ArrayBuffer or ArrayBuffer[]
+      let weightDataSize;
+      if (Array.isArray(weightData)) {
+        weightDataSize = weightData.reduce((total, buffer) => total + buffer.byteLength, 0);
+        console.log('Weight data size (total of all buffers):', weightDataSize);
+      } else {
+        weightDataSize = weightData.byteLength;
+        console.log('Weight data size:', weightDataSize);
+      }
       
       // Step 5: Create the proper model.json format
       const modelJson = {
@@ -399,10 +425,28 @@ export class StrandModel {
         weightsCount: modelJson.weightsManifest?.[0]?.weights?.length || 0
       });
       
-      // Step 6: Upload to Supabase Storage
+      // Step 6: Prepare weight data for upload
+      // If weightData is an array of ArrayBuffers, concatenate them into a single ArrayBuffer
+      let uploadWeightData: ArrayBuffer;
+      if (Array.isArray(weightData)) {
+        // Concatenate all the ArrayBuffers into a single ArrayBuffer
+        const totalLength = weightData.reduce((total, buffer) => total + buffer.byteLength, 0);
+        uploadWeightData = new Uint8Array(totalLength).buffer;
+        
+        let offset = 0;
+        for (const buffer of weightData) {
+          const uint8Array = new Uint8Array(uploadWeightData, offset, buffer.byteLength);
+          uint8Array.set(new Uint8Array(buffer));
+          offset += buffer.byteLength;
+        }
+      } else {
+        uploadWeightData = weightData;
+      }
+      
+      // Upload to Supabase Storage
       const uploadResult = await modelStorageService.uploadModel(
         modelJson,
-        weightData
+        uploadWeightData
       );
       
       // Step 7: Clean up temporary IndexedDB model
@@ -730,5 +774,110 @@ export class StrandModel {
     }
     this.isTrained = false;
     console.log('Model resources cleaned up');
+  }
+  
+  // BaseModel interface implementation
+  
+  /**
+   * Check if model is ready for predictions
+   * @returns Boolean indicating if model is initialized and trained
+   */
+  isModelReady(): boolean {
+    return this.isInitialized() && this.isModelTrained();
+  }
+  
+  /**
+   * Get model type for identification
+   * @returns String identifying the model type
+   */
+  getModelType(): string {
+    return 'neural-network';
+  }
+  
+  /**
+   * Get model parameters/configuration
+   * @returns Object containing model configuration
+   */
+  getModelParameters(): any {
+    return {
+      inputSize: MODEL_CONFIG.architecture.inputSize,
+      hiddenLayers: MODEL_CONFIG.architecture.hiddenLayers,
+      outputSize: MODEL_CONFIG.architecture.outputSize,
+      activation: MODEL_CONFIG.architecture.activation,
+      outputActivation: MODEL_CONFIG.architecture.outputActivation,
+      dropout: MODEL_CONFIG.architecture.dropout,
+      learningRate: MODEL_CONFIG.training.learningRate,
+      epochs: MODEL_CONFIG.training.epochs,
+      batchSize: MODEL_CONFIG.training.batchSize,
+    };
+  }
+  
+  /**
+   * BaseModel predict method that accepts number array
+   * @param features Features as number array
+   * @returns Prediction probabilities as number array
+   */
+  async predict(features: number[]): Promise<number[]> {
+    // Validate model is properly initialized and trained
+    this.validateModel();
+    
+    // Validate input features
+    if (!features) {
+      throw new Error('Features cannot be null or undefined');
+    }
+    
+    // Validate feature array length
+    const expectedFeatures = MODEL_CONFIG.architecture.inputSize;
+    if (features.length !== expectedFeatures) {
+      throw new Error(`Feature array has ${features.length} features, expected ${expectedFeatures}`);
+    }
+    
+    // Check for null or undefined values
+    for (let i = 0; i < features.length; i++) {
+      if (features[i] == null || isNaN(features[i])) {
+        throw new Error(`Feature at index ${i} is null, undefined, or NaN`);
+      }
+    }
+    
+    // Initialize variables for tensor cleanup
+    let input: tf.Tensor2D | null = null;
+    let prediction: tf.Tensor | null = null;
+    
+    try {
+      // Convert to tensor
+      input = tf.tensor2d([features]);
+      console.debug(`Created prediction tensor with shape: ${input.shape}`);
+      
+      // Make prediction
+      prediction = this.model.predict(input) as tf.Tensor;
+      
+      // Get values from tensor
+      const values = await prediction.data();
+      
+      // Validate prediction values
+      if (!values || values.length !== MODEL_CONFIG.architecture.outputSize) {
+        throw new Error(`Invalid prediction output. Expected ${MODEL_CONFIG.architecture.outputSize} values, got ${values?.length || 0}`);
+      }
+      
+      // Convert to array and return
+      return Array.from(values);
+    } catch (error) {
+      console.error('Prediction failed:', error);
+      throw new Error(`Prediction failed: ${error.message || error}`);
+    } finally {
+      // Clean up tensors in finally block to ensure they're always disposed
+      try {
+        if (input) {
+          console.debug('Disposing prediction input tensor');
+          input.dispose();
+        }
+        if (prediction) {
+          console.debug('Disposing prediction output tensor');
+          prediction.dispose();
+        }
+      } catch (disposeError) {
+        console.warn('Error disposing prediction tensors:', disposeError);
+      }
+    }
   }
 }

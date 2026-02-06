@@ -17,15 +17,16 @@ import {
   Shield,
   Cpu,
   Home,
-  BarChart3
+  BarChart3,
+  GitCompare
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  activeSection: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model';
-  setActiveSection: (section: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model') => void;
+  activeSection: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model' | 'ml-comparison';
+  setActiveSection: (section: 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model' | 'ml-comparison') => void;
 }
 
 export const AdminLayout = ({ children, activeSection, setActiveSection }: AdminLayoutProps) => {
@@ -103,6 +104,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
     { id: 'schools', label: 'Schools', icon: School },
     { id: 'questions', label: 'Questions', icon: BookOpen },
     { id: 'ml-model', label: 'ML Model', icon: Cpu },
+    { id: 'ml-comparison', label: 'ML Comparison', icon: GitCompare },
     { id: 'settings', label: 'System Settings', icon: Settings },
   ];
 
@@ -111,7 +113,7 @@ export const AdminLayout = ({ children, activeSection, setActiveSection }: Admin
     if (location.pathname !== '/admin/dashboard') {
       navigate('/admin/dashboard');
     }
-    setActiveSection(itemId as 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model');
+    setActiveSection(itemId as 'dashboard' | 'students' | 'schools' | 'questions' | 'settings' | 'ml-model' | 'ml-comparison');
     setSidebarOpen(false);
   };
 
