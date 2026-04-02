@@ -122,10 +122,15 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
     }
   };
 
-  // Get unique categories and types for filters
-  const uniqueCategories = Array.from(new Set(questions.map(q => q.category)));
-  const uniqueTypes = Array.from(new Set(questions.map(q => q.type || 'multiple_choice')));
+  // Get unique categories and types for filters (filter out empty/null values)
+  const uniqueCategories = Array.from(new Set(questions.filter(q => q.category && q.category.trim() !== '').map(q => q.category)));
+  const uniqueTypes = Array.from(new Set(questions.map(q => (q.type && q.type.trim() !== '') ? q.type : 'multiple_choice'))).filter(type => type && type.trim() !== '');
   const difficultyLevels = [1, 2, 3];
+
+  // Debug: Log questions data to check for empty categories/types
+  console.debug('Questions data:', questions);
+  console.debug('Unique categories:', uniqueCategories);
+  console.debug('Unique types:', uniqueTypes);
 
   const resetForm = () => {
     setFormData({
@@ -411,13 +416,17 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
       <div className="flex flex-wrap gap-4 p-4 bg-muted/30 rounded-lg">
         <div className="flex flex-col gap-2">
           <Label className="text-sm font-medium">Category</Label>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <Select 
+            key={`category-filter-${uniqueCategories.length}`}
+            value={categoryFilter} 
+            onValueChange={setCategoryFilter}
+          >
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {uniqueCategories.map(category => (
+              {uniqueCategories.filter(cat => cat && cat.trim() !== '').map(category => (
                 <SelectItem key={category} value={category}>
                   <div className="flex items-center gap-2">
                     {getCategoryIcon(category)}
@@ -431,13 +440,17 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
         
         <div className="flex flex-col gap-2">
           <Label className="text-sm font-medium">Type</Label>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <Select 
+            key={`type-filter-${uniqueTypes.length}`}
+            value={typeFilter} 
+            onValueChange={setTypeFilter}
+          >
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              {uniqueTypes.map(type => (
+              {uniqueTypes.filter(type => type && type.trim() !== '').map(type => (
                 <SelectItem key={type} value={type}>
                   <span className="capitalize">{type.replace('_', ' ')}</span>
                 </SelectItem>
@@ -448,7 +461,11 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
         
         <div className="flex flex-col gap-2">
           <Label className="text-sm font-medium">Difficulty</Label>
-          <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+          <Select 
+            key={`difficulty-filter`}
+            value={difficultyFilter} 
+            onValueChange={setDifficultyFilter}
+          >
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Difficulty" />
             </SelectTrigger>
@@ -553,7 +570,10 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="type">Question Type</Label>
-                    <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as any })}>
+                    <Select 
+                      value={formData.type || 'multiple_choice'} 
+                      onValueChange={(value) => setFormData({ ...formData, type: value as any })}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
@@ -568,7 +588,10 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
 
                   <div className="space-y-2">
                     <Label htmlFor="category">Category</Label>
-                    <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                    <Select 
+                      value={formData.category || 'math'} 
+                      onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
@@ -667,26 +690,27 @@ export default function QuestionManagement({ questions, onRefresh }: QuestionMan
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="correct_answer">Correct Answer</Label>
-                    <Select value={formData.correct_answer.toString()} onValueChange={(value) => setFormData({ ...formData, correct_answer: parseInt(value) })}>
+                    <Select 
+                      value={formData.type === 'essay' || formData.type === 'identification' ? undefined : formData.correct_answer.toString()}
+                      onValueChange={(value) => setFormData({ ...formData, correct_answer: parseInt(value) })}
+                      disabled={formData.type === 'essay' || formData.type === 'identification'}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select correct option" />
+                        <SelectValue placeholder={formData.type === 'essay' || formData.type === 'identification' ? 'Not applicable' : 'Select correct option'} />
                       </SelectTrigger>
                       <SelectContent>
-                        {formData.type === 'multiple_choice' ? (
+                        {formData.type === 'multiple_choice' && (
                           <>
                             <SelectItem value="0">Option 1</SelectItem>
                             <SelectItem value="1">Option 2</SelectItem>
                             <SelectItem value="2">Option 3</SelectItem>
                             <SelectItem value="3">Option 4</SelectItem>
                           </>
-                        ) : formData.type === 'true_false' ? (
+                        )}
+                        {formData.type === 'true_false' && (
                           <>
                             <SelectItem value="0">True</SelectItem>
                             <SelectItem value="1">False</SelectItem>
-                          </>
-                        ) : (
-                          <>
-                            <SelectItem value="0">N/A</SelectItem>
                           </>
                         )}
                       </SelectContent>
